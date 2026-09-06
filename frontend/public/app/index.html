@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF to PowerPoint</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <p class="home-link"><a href="/">← MA·Darwin</a></p>
+    <main class="container">
+      <!-- ============ VIEW: UPLOAD ============ -->
+      <section class="upload-panel" id="uploadPanel">
+        <p class="eyebrow">Document Center</p>
+        <h1>Upload a PDF</h1>
+        <p class="subtitle">Choose a PDF file to preview it, then convert it to a PowerPoint deck.</p>
+
+        <label class="upload-box" for="pdfInput">
+          <input id="pdfInput" type="file" accept="application/pdf" />
+          <span class="upload-icon">📄</span>
+          <span class="upload-text">Select PDF</span>
+        </label>
+
+        <div class="file-meta">
+          <span class="label">Selected file:</span>
+          <span id="fileName">None</span>
+        </div>
+
+        <p id="statusMessage" class="status">Waiting for a PDF file...</p>
+
+        <button id="convertBtn" class="convert-btn" type="button" hidden>
+          Convert to PowerPoint
+        </button>
+      </section>
+
+      <!-- ============ VIEW: PDF PREVIEW ============ -->
+      <section class="viewer-panel" id="previewPanel">
+        <div class="viewer-header">
+          <h2>Preview</h2>
+        </div>
+        <iframe id="pdfPreview" title="PDF preview" src="about:blank"></iframe>
+      </section>
+
+      <!-- ============ VIEW: LOADING ============ -->
+      <section class="state-panel theater-panel" id="loadingPanel" hidden>
+        <div class="skill-chip">
+          <span class="skill-dot" aria-hidden="true"></span>
+          <span>Skill loaded · <strong id="skillName">sundai-powerpoint</strong></span>
+          <span class="skill-ver" id="skillVersion">v1</span>
+        </div>
+        <h2 id="loadingTitle">Using the skill to write your deck…</h2>
+        <p class="subtitle" id="loadingDetail">Extract the publication, plan slides, then write the PowerPoint. This can take several minutes.</p>
+        <div class="theater-stats">
+          <div><b id="theaterElapsed">0:00</b><span>Elapsed</span></div>
+          <div><b id="theaterTokens">0</b><span>Tokens</span></div>
+          <div><b id="theaterCost">$0.00</b><span>Cost</span></div>
+        </div>
+        <ol class="theater-steps" id="theaterSteps"></ol>
+        <p class="theater-live" id="theaterLive">Waiting for the first workflow event…</p>
+      </section>
+
+      <!-- ============ VIEW: RESULT (carousel) ============ -->
+      <section class="result-panel" id="resultPanel" hidden>
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Generated deck</p>
+            <h2 id="deckTitle">PowerPoint preview</h2>
+          </div>
+          <div class="result-actions">
+            <a id="downloadBtn" class="btn-secondary" href="#" download>Download .pptx</a>
+            <button id="restartBtn" class="btn-secondary" type="button">Start over</button>
+          </div>
+        </div>
+
+        <div class="result-body">
+          <div class="result-main">
+            <div class="carousel" id="slideCarousel">
+              <button class="carousel-nav prev" id="prevSlide" type="button" aria-label="Previous slide">‹</button>
+              <div class="slide-stage">
+                <iframe id="deckPdf" class="deck-pdf" title="Deck PDF preview" hidden></iframe>
+                <img id="slideImage" alt="Slide preview" />
+              </div>
+              <button class="carousel-nav next" id="nextSlide" type="button" aria-label="Next slide">›</button>
+            </div>
+
+            <div class="carousel-footer">
+              <span id="slideCounter">Slide 1 / 1</span>
+            </div>
+
+            <div class="thumb-strip" id="thumbStrip"></div>
+          </div>
+
+          <!-- ===== notes / evaluation sidebar (deck-scoped, survives slide nav) ===== -->
+          <aside class="notes-panel" id="notesPanel">
+            <label class="notes-label" for="notesInput">
+              Your feedback — what do you like or want changed?
+            </label>
+            <textarea
+              id="notesInput"
+              class="notes-input"
+              placeholder="Type your feedback on the deck here…"
+              rows="10"
+            ></textarea>
+            <div class="notes-status">
+              <span class="saved-indicator" id="savedIndicator" hidden>Saved</span>
+            </div>
+
+            <button id="evalBtn" class="convert-btn eval-btn" type="button" disabled>
+              See AI Evaluation
+            </button>
+
+            <div class="eval-result" id="evalResult" hidden>
+              <p class="eyebrow">AI evaluation</p>
+              <p class="eval-placeholder">Your evaluation is locked.</p>
+              <button id="openEvalBtn" class="convert-btn" type="button">
+                Open AI Evaluation →
+              </button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ============ VIEW: AI EVALUATION ============ -->
+      <section class="evaluation-panel" id="evaluationPanel" hidden>
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Evaluation</p>
+            <h2>AI Evaluation &amp; Comparison</h2>
+          </div>
+          <div class="result-actions">
+            <button id="backToDeckBtn" class="btn-secondary" type="button">← Back to slides</button>
+            <button id="evalRestartBtn" class="btn-secondary" type="button">Start over</button>
+          </div>
+        </div>
+
+        <div class="eval-columns">
+          <article class="eval-card">
+            <header class="eval-card-head">
+              <h3>Your Evaluation</h3>
+              <span class="eval-tag">Locked · submitted by you</span>
+            </header>
+            <p class="eval-card-body" id="yourEvalText"></p>
+          </article>
+
+          <article class="eval-card">
+            <header class="eval-card-head">
+              <h3>AI Evaluation</h3>
+              <span class="eval-tag ai">Generated · sample output</span>
+            </header>
+            <div class="eval-card-body" id="aiEvalBody">
+              <h4>Structure</h4>
+              <p>
+                The deck follows the expected 8-slide M2M arc (title → disease
+                context → unmet need → evidence → safety → unknowns → references
+                → backup). Slide order is sound, but the evidence slide (4) tries
+                to carry the full study design, sample size, and three endpoints
+                in one view — it should be split. There is no standalone
+                executive-summary slide, so a reader skimming the first 20
+                seconds gets no synthesis.
+              </p>
+              <h4>Content</h4>
+              <p>
+                Claims on slides 2–4 are traceable to the source PDF. The safety
+                slide (5) is appropriately weighted but uses a dense paragraph
+                where a structured table (event, arm, rate, difference) would
+                read faster. Confidence intervals are stated inconsistently —
+                present on the primary endpoint, missing on the secondary. The
+                "what remains unknown" slide (6) is currently a single sentence
+                and under-developed relative to its importance in scientific
+                exchange.
+              </p>
+              <h4>Quality &amp; compliance</h4>
+              <p>
+                Tone is non-promotional and the DRAFT marking is retained on the
+                title slide. References list only identifiers that appear in the
+                source. Visual density is the main quality risk: 4 of 8 slides
+                exceed ~40 words of body copy, which pushes them past a
+                comfortable presenter-support threshold.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <section class="eval-analysis">
+          <h3>Analysis &amp; Suggested Improvements</h3>
+
+          <div class="analysis-block">
+            <h4>Where your feedback and the AI evaluation agreed</h4>
+            <ul class="analysis-list">
+              <li>
+                Both flagged the evidence slide (4) as overloaded — you asked for
+                "a clearer confidence interval," the AI flagged the same slide
+                for carrying too many endpoints at once.
+              </li>
+              <li>
+                Both rated the safety framing positively; no change needed to its
+                prominence or placement.
+              </li>
+            </ul>
+          </div>
+
+          <div class="analysis-block">
+            <h4>Where they diverged</h4>
+            <ul class="analysis-list">
+              <li>
+                You did not mention the missing executive-summary slide; the AI
+                evaluation raised it as a priority gap.
+              </li>
+              <li>
+                The AI called slides 2–3 "dense paragraphs"; your notes did not
+                comment on prose density outside slide 4.
+              </li>
+            </ul>
+          </div>
+
+          <div class="analysis-block">
+            <h4>Suggested changes to the PDF → PowerPoint skill</h4>
+            <p class="rejected-note" id="rejectedNote" hidden></p>
+            <ol class="skill-change-list" id="skillChangeList"></ol>
+            <p class="empty-suggestions" id="emptySuggestions" hidden>
+              Every suggestion in the catalogue has already been tried and
+              rejected for this skill, so there is nothing new to propose.
+              Reset the skill's mock history to run the loop again.
+            </p>
+          </div>
+
+          <div class="analysis-actions">
+            <button id="applyChangesBtn" class="convert-btn" type="button">
+              Apply changes &amp; regenerate
+            </button>
+            <button id="evalHistoryBtn" class="btn-secondary" type="button">
+              Version history
+            </button>
+            <button id="evalResetBtn" class="btn-secondary" type="button">
+              Reset skill data
+            </button>
+          </div>
+        </section>
+      </section>
+
+      <!-- ============ VIEW: REGENERATING ============ -->
+      <section class="state-panel" id="regenPanel" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <h2 id="regenTitle">Updating skill…</h2>
+        <p class="subtitle" id="regenDetail">Applying the suggested changes.</p>
+        <ol class="regen-steps" id="regenSteps"></ol>
+      </section>
+
+      <!-- ============ VIEW: COMPARE V1 vs V2 ============ -->
+      <section class="evaluation-panel" id="comparePanel" hidden>
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Compare</p>
+            <h2>Original vs. Regenerated</h2>
+          </div>
+          <div class="result-actions">
+            <button id="compareHistoryBtn" class="btn-secondary" type="button">Version history</button>
+          </div>
+        </div>
+
+        <div class="eval-columns">
+          <article class="eval-card compare-card">
+            <header class="eval-card-head">
+              <h3>Version 1 — Original</h3>
+              <span class="eval-tag" id="v1Tag">Active skill version</span>
+            </header>
+            <div class="mini-carousel">
+              <button class="carousel-nav" data-cmp="v1" data-dir="-1" type="button" aria-label="Previous">‹</button>
+              <div class="mini-stage">
+                <iframe id="cmpV1Pdf" class="deck-pdf" title="Version 1 PDF" hidden></iframe>
+                <img id="cmpV1Img" alt="Version 1 slide" />
+              </div>
+              <button class="carousel-nav" data-cmp="v1" data-dir="1" type="button" aria-label="Next">›</button>
+            </div>
+            <p class="mini-counter" id="cmpV1Counter">Slide 1 / 1</p>
+          </article>
+
+          <article class="eval-card compare-card">
+            <header class="eval-card-head">
+              <h3>Version 2 — Updated</h3>
+              <span class="eval-tag ai">Regenerated with suggested changes</span>
+            </header>
+            <div class="mini-carousel">
+              <button class="carousel-nav" data-cmp="v2" data-dir="-1" type="button" aria-label="Previous">‹</button>
+              <div class="mini-stage">
+                <iframe id="cmpV2Pdf" class="deck-pdf" title="Version 2 PDF" hidden></iframe>
+                <img id="cmpV2Img" alt="Version 2 slide" />
+              </div>
+              <button class="carousel-nav" data-cmp="v2" data-dir="1" type="button" aria-label="Next">›</button>
+            </div>
+            <p class="mini-counter" id="cmpV2Counter">Slide 1 / 1</p>
+          </article>
+        </div>
+
+        <section class="eval-analysis">
+          <h3>Which version is better?</h3>
+          <p class="subtitle">
+            Your pick decides whether the skill keeps Version 2 or reverts to
+            Version 1. This choice can't be undone in this round.
+          </p>
+
+          <div class="ab-choice" id="abChoice">
+            <label class="ab-option">
+              <input type="radio" name="abPick" value="v1" />
+              <span class="ab-option-label">Version 1 (Original)</span>
+            </label>
+            <label class="ab-option">
+              <input type="radio" name="abPick" value="v2" />
+              <span class="ab-option-label">Version 2 (Updated)</span>
+            </label>
+          </div>
+
+          <label class="notes-label" for="abReason">Why? (required)</label>
+          <textarea
+            id="abReason"
+            class="notes-input"
+            rows="4"
+            placeholder="Briefly explain your choice — this reasoning is recorded and used to avoid repeating rejected changes."
+          ></textarea>
+
+          <div class="analysis-actions">
+            <button id="abSubmitBtn" class="convert-btn" type="button" disabled>
+              Submit decision
+            </button>
+          </div>
+        </section>
+      </section>
+
+      <!-- ============ VIEW: OUTCOME ============ -->
+      <section class="evaluation-panel" id="outcomePanel" hidden>
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Round complete</p>
+            <h2 id="outcomeTitle">Decision recorded</h2>
+          </div>
+          <div class="result-actions">
+            <button id="outcomeHistoryBtn" class="btn-secondary" type="button">Version history</button>
+            <button id="outcomeDoneBtn" class="btn-secondary" type="button">Back to deck</button>
+            <button id="outcomeRestartBtn" class="btn-secondary" type="button">Upload new PDF</button>
+          </div>
+        </div>
+
+        <div class="outcome-body" id="outcomeBody"></div>
+
+        <p class="subtitle outcome-stop">
+          The flow stops here. Upload a new PDF or start another improvement
+          round manually to continue — nothing regenerates automatically.
+        </p>
+      </section>
+
+      <!-- ============ VIEW: VERSION HISTORY ============ -->
+      <section class="evaluation-panel" id="historyPanel" hidden>
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Skill</p>
+            <h2>Version history</h2>
+          </div>
+          <div class="result-actions">
+            <button id="historyResetBtn" class="btn-secondary" type="button">Reset skill data</button>
+            <button id="historyBackBtn" class="btn-secondary" type="button">← Back</button>
+          </div>
+        </div>
+
+        <p class="subtitle" id="activeVersionLine">Active version: 1</p>
+
+        <ol class="history-list" id="historyList"></ol>
+
+        <div class="analysis-block" id="rejectedListBlock" hidden>
+          <h4>Rejected suggestions for this skill</h4>
+          <ul class="analysis-list" id="rejectedList"></ul>
+        </div>
+      </section>
+    </main>
+
+    <!-- ============ MODAL: lock confirmation ============ -->
+    <div class="modal-overlay" id="lockModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lockModalText">
+        <h3 class="modal-title">Lock your evaluation?</h3>
+        <p class="modal-body" id="lockModalText">
+          Be careful! Once you click on this button, you won't be able to go back
+          and adjust your evaluation. Are you sure you want to continue?
+        </p>
+        <div class="modal-actions">
+          <button id="lockCancel" class="btn-secondary" type="button">Cancel</button>
+          <button id="lockConfirm" class="convert-btn modal-confirm" type="button">
+            Yes, continue
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TOAST: undo suggestion delete ============ -->
+    <div class="toast" id="toast" hidden>
+      <span id="toastMsg">Suggestion removed</span>
+      <button id="toastUndo" type="button">Undo</button>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

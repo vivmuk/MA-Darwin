@@ -145,6 +145,8 @@ def test_create_parse_start_events_round_comments_lock(client: TestClient) -> No
     assert payload["n"] == 1
     assert payload["slide_images"][0].startswith(f"/runs/{run_id}/rounds/1/slides/")
     assert payload["gate3"]["deck_score"] == 82.0
+    assert "pdf_url" in payload
+    assert client.get(f"/runs/{run_id}/rounds/1/deck.pdf").status_code in {200, 404}
 
     comments = client.post(
         f"/runs/{run_id}/rounds/1/comments",

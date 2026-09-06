@@ -258,9 +258,12 @@ def get_round(request: Request, run_id: str, round_n: int) -> dict[str, object]:
         from app.models.layout import LayoutSpec
 
         layout_spec = json.loads(LayoutSpec.model_validate_json(spec_path.read_text(encoding="utf-8")).model_dump_json())
+    rdir = _store(request).round_dir(run_id, round_n)
+    pdf_url = f"/runs/{run_id}/rounds/{round_n}/deck.pdf" if (rdir / "deck.pdf").is_file() else None
     return {
         "n": rnd.n,
         "deck_path": rnd.deck_path,
+        "pdf_url": pdf_url,
         "slide_images": images,
         "slide_svgs": svgs,
         "layout_spec": layout_spec,
@@ -287,6 +290,15 @@ def get_slide_image(request: Request, run_id: str, round_n: int, name: str) -> F
         raise HTTPException(status_code=404, detail="slide image not found")
     media = "image/svg+xml" if path.suffix.lower() == ".svg" else "image/png"
     return FileResponse(path, media_type=media)
+
+
+@router.get("/runs/{run_id}/rounds/{round_n}/deck.pdf")
+def get_round_pdf(request: Request, run_id: str, round_n: int) -> FileResponse:
+    _run_or_404(request, run_id)
+    path = _store(request).round_dir(run_id, round_n) / "deck.pdf"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="deck pdf not found")
+    return FileResponse(path, media_type="application/pdf", filename="deck.pdf")
 
 
 @router.post("/runs/{run_id}/rounds/{round_n}/comments")

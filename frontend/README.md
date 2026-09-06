@@ -1,6 +1,6 @@
 # Frontend
 
-Viv’s intro at `/`. Zac’s Darwin loop at `/app`.
+Landing (downloaded MA-Darwin HTML) at `/`. Zac’s Document Center at `/app`.
 
 ```bash
 cd frontend

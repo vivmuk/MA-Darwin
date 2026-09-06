@@ -10,7 +10,7 @@ skill, regenerates, and keeps the winner.
 - **Brain:** Venice `claude-opus-4-8` (never emits a PowerPoint file)
 - **Hands:** `skills/sundai-powerpoint/scripts/add_slide.py` + `add_editable_chart.py`
 - **Ingest:** Jay’s page-level claim ledger (`pymupdf` / `pdfplumber` / `pypdf`)
-- **UI:** Viv’s intro → Zac’s lock-eval → AI eval → skill mutate → A/B
+- **UI:** landing at `/` → Zac’s Document Center at `/app` (upload → generate → evaluate → compare)
 - **Deploy:** one Railway service serves the UI at `/` and the API at `/api` — see [docs/RAILWAY.md](docs/RAILWAY.md)
 
 ## Deck-generation environment

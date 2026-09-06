@@ -17,6 +17,7 @@ async function exists(target) {
 }
 
 async function parkApiRoutes() {
+  await rm(path.join(root, "app", ".api-parked-for-static-export"), { recursive: true, force: true });
   if (!(await exists(apiDir))) return;
   await rm(parked, { recursive: true, force: true });
   await cp(apiDir, parked, { recursive: true });
@@ -44,6 +45,18 @@ try {
     },
   });
   process.exitCode = result.status ?? 1;
+  if (result.status === 0) {
+    const out = path.join(root, "out");
+    const landing = path.join(root, "public", "landing.html");
+    const zac = path.join(root, "public", "app");
+    if (await exists(landing)) {
+      await cp(landing, path.join(out, "index.html"));
+    }
+    if (await exists(zac)) {
+      await rm(path.join(out, "app"), { recursive: true, force: true });
+      await cp(zac, path.join(out, "app"), { recursive: true });
+    }
+  }
 } finally {
   await restoreApiRoutes();
 }
