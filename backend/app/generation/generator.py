@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 from app.generation.layout import compose_layout_spec, load_layout_spec, write_layout_spec
@@ -26,6 +27,7 @@ def generate_deck(
     locked_slides: list[int] | None = None,
     prior_deck_path: Path | str | None = None,
     assets: list[ExtractedAsset] | None = None,
+    on_slide: Callable[..., None] | None = None,
 ) -> GenerationResult:
     """Compose a LayoutSpec, then write pptx + maps from that spec.
 
@@ -58,6 +60,7 @@ def generate_deck(
         assets=assets,
         prior_spec=prior_spec,
         locked_slides=locked_slides,
+        on_slide=on_slide,
     )
     del skill_version
 

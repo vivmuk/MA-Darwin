@@ -88,7 +88,7 @@ const THEATER_STEPS = [
   { id: 'ocr', label: 'Extract publication (OCR + text)', tools: 'pymupdf · pdfplumber · OCR', match: ['ocr_started', 'ocr_page', 'ocr_complete', 'pages_parsed'] },
   { id: 'ledger', label: 'Build the claim ledger', tools: 'Venice · page-level claims', match: ['claims_extracted', 'figures_extracted'] },
   { id: 'plan', label: 'Plan the slide sequence', tools: 'Claude Opus 4.8 · SlidePlan', match: ['blueprint_slot_filled'] },
-  { id: 'write', label: 'Write the PowerPoint', tools: 'python-pptx · add_slide.py', match: ['rendering'] },
+  { id: 'write', label: 'Write the PowerPoint', tools: 'python-pptx · add_slide.py', match: ['rendering', 'library_call'] },
   { id: 'gates', label: 'Quality gates + thumbnails', tools: 'LibreOffice · Gate 1 / Gate 2', match: ['gate1_complete', 'gate2_complete'] },
   { id: 'judge', label: 'Judge visual fitness', tools: 'Gate 3 rubric', match: ['judging_slide'] },
   { id: 'done', label: 'Deck ready for review', tools: '', match: ['round_complete', 'awaiting_review', 'plateau'] },
@@ -98,7 +98,7 @@ const SSE_EVENTS = [
   'pages_parsed', 'claims_extracted', 'figures_extracted', 'blueprint_slot_filled',
   'rendering', 'gate1_complete', 'gate2_complete', 'judging_slide', 'round_complete',
   'awaiting_review', 'plateau', 'error', 'heartbeat', 'skill_loaded', 'skill_load',
-  'ocr_started', 'ocr_page', 'ocr_complete', 'library_called',
+  'ocr_started', 'ocr_page', 'ocr_complete', 'library_call', 'library_called',
 ];
 
 function mediaUrl(path) {
@@ -118,7 +118,7 @@ function roundToDeck(runId, round) {
     id: runId,
     title: `Round ${round.n} · M2M deck`,
     slides: raw.map(mediaUrl),
-    pdfUrl: round.pdf_url ? mediaUrl(round.pdf_url) : '',
+    pdfUrl: mediaUrl(round.pdf_url || round.preview_pdf_url || ''),
     pptxUrl: `/api/runs/${runId}/export?round_n=${round.n}`,
     round_n: round.n,
     gate3: round.gate3,

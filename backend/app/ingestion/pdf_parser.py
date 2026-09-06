@@ -60,6 +60,31 @@ def extract_assets(pdf_path: Path | str, output_dir: Path | str) -> list[Extract
     return assets
 
 
+def rasterize_pages(
+    pdf_path: Path | str,
+    output_dir: Path | str,
+    *,
+    dpi: int = 150,
+) -> list[Path]:
+    """Render each PDF page to ``page_XX.png`` for Venice vision OCR."""
+    path = Path(pdf_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"PDF not found: {path}")
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    doc = fitz.open(path)
+    paths: list[Path] = []
+    try:
+        for index, page in enumerate(doc, start=1):
+            pix = page.get_pixmap(dpi=dpi, alpha=False)
+            dest = out / f"page_{index:02d}.png"
+            pix.save(dest)
+            paths.append(dest)
+    finally:
+        doc.close()
+    return paths
+
+
 def parse_pdf(pdf_path: Path | str, assets_dir: Path | str, *, paper_id: str) -> ParsedDocument:
     """Run full PDF parse: pages + assets into a single ``ParsedDocument``."""
     pages = extract_pages(pdf_path)

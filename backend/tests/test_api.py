@@ -106,6 +106,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
 def test_health(client: TestClient) -> None:
     assert client.get("/health").json() == {"status": "ok"}
+    caps = client.get("/health/capabilities").json()
+    assert caps["capabilities"]["skill_loaded"] is True
+    assert "python-pptx" in caps["capabilities"]["skill_tools"]
 
 
 def test_create_parse_start_events_round_comments_lock(client: TestClient) -> None:
@@ -130,11 +133,13 @@ def test_create_parse_start_events_round_comments_lock(client: TestClient) -> No
     stream = client.get(f"/runs/{run_id}/events")
     assert stream.status_code == 200
     body = stream.text
+    assert "skill_loaded" in body
     assert "pages_parsed" in body
     assert "Parsed 14 pages" in body
     assert "Extracted 3 claims" in body or "claims_extracted" in body
     assert "Filling blueprint" in body
     assert "Rendering" in body
+    assert "library_call" in body or "python-pptx" in body or "pymupdf" in body
     assert "Gate 1:" in body
     assert "Judging slide" in body
     assert "round_complete" in body
@@ -146,7 +151,18 @@ def test_create_parse_start_events_round_comments_lock(client: TestClient) -> No
     assert payload["slide_images"][0].startswith(f"/runs/{run_id}/rounds/1/slides/")
     assert payload["gate3"]["deck_score"] == 82.0
     assert "pdf_url" in payload
-    assert client.get(f"/runs/{run_id}/rounds/1/deck.pdf").status_code in {200, 404}
+    assert payload["preview_pdf_url"] == f"/runs/{run_id}/rounds/1/deck.pdf"
+
+    missing = client.get(f"/runs/{run_id}/rounds/1/deck.pdf")
+    assert missing.status_code == 404
+    store = getattr(client.app.state, "store", None)
+    if store is not None:
+        pdf_path = store.round_dir(run_id, 1) / "deck.pdf"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_bytes(b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n")
+        preview = client.get(f"/runs/{run_id}/rounds/1/deck.pdf")
+        assert preview.status_code == 200
+        assert preview.headers["content-type"].startswith("application/pdf")
 
     comments = client.post(
         f"/runs/{run_id}/rounds/1/comments",

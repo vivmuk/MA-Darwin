@@ -151,12 +151,20 @@ class StoppingDecision(BaseModel):
 
 
 class ProgressEventType(str, Enum):
-    """SSE milestone event names (PRD §9 Zone B / Prompt 6)."""
+    """SSE milestone event names (PRD §9 Zone B / Prompt 6).
 
+    UI-coordinated additions: skill_loaded, ocr_started, ocr_page, library_call.
+    Existing names stay stable for the sibling progress animation.
+    """
+
+    SKILL_LOADED = "skill_loaded"
+    OCR_STARTED = "ocr_started"
+    OCR_PAGE = "ocr_page"
     PAGES_PARSED = "pages_parsed"
     CLAIMS_EXTRACTED = "claims_extracted"
     FIGURES_EXTRACTED = "figures_extracted"
     BLUEPRINT_SLOT_FILLED = "blueprint_slot_filled"
+    LIBRARY_CALL = "library_call"
     RENDERING = "rendering"
     GATE1_COMPLETE = "gate1_complete"
     GATE2_COMPLETE = "gate2_complete"
@@ -188,6 +196,10 @@ class ProgressEvent(BaseModel):
     gate_flags: Optional[int] = Field(default=None, ge=0)
     slide: Optional[int] = Field(default=None, ge=1)
     slide_total: Optional[int] = Field(default=None, ge=1)
+    tool: Optional[str] = None
+    tools: Optional[list[str]] = None
+    skill_name: Optional[str] = None
+    skill_version: Optional[str] = None
 
 
 class GenerationResult(BaseModel):

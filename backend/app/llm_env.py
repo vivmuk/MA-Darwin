@@ -110,12 +110,52 @@ def get_llm_settings() -> LlmSettings | None:
     return None
 
 
+def vision_model() -> str:
+    """Model used for page OCR. ``VENICE_VISION_MODEL`` or the planner model."""
+    ensure_dotenv()
+    return (
+        os.environ.get("VENICE_VISION_MODEL")
+        or os.environ.get("VENICE_MODEL")
+        or "claude-opus-4-8"
+    ).strip()
+
+
+def venice_base_url() -> str:
+    ensure_dotenv()
+    return (os.environ.get("VENICE_BASE_URL") or "https://api.venice.ai/api/v1").rstrip("/")
+
+
+def venice_parse_document(pdf_path: Path | str) -> str:
+    """POST the PDF to Venice ``/augment/text-parser``. Empty if unavailable."""
+    import httpx
+
+    settings = get_llm_settings()
+    if not settings or settings.provider != "venice":
+        return ""
+    path = Path(pdf_path)
+    if not path.is_file() or path.stat().st_size > 25 * 1024 * 1024:
+        return ""
+    url = f"{venice_base_url()}/augment/text-parser"
+    with path.open("rb") as fh, httpx.Client(timeout=120.0) as client:
+        response = client.post(
+            url,
+            headers={"Authorization": settings.headers.get("Authorization", "")},
+            files={"file": (path.name, fh, "application/pdf")},
+            data={"response_format": "json"},
+        )
+        response.raise_for_status()
+        data = response.json()
+    text = data.get("text") if isinstance(data, dict) else None
+    return text.strip() if isinstance(text, str) else ""
+
+
 def chat_text(
     *,
     system: str,
     user: str | list[dict[str, Any]],
     max_tokens: int = 2048,
     temperature: float = 0,
+    model: str | None = None,
 ) -> str:
     """Run one chat turn and return assistant text. Empty string if not configured."""
     import httpx
@@ -123,6 +163,7 @@ def chat_text(
     settings = get_llm_settings()
     if not settings:
         return ""
+    chosen = (model or settings.model).strip()
 
     if settings.api_style == "openai":
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
@@ -131,7 +172,7 @@ def chat_text(
         else:
             messages.append({"role": "user", "content": user})
         body: dict[str, Any] = {
-            "model": settings.model,
+            "model": chosen,
             "messages": messages,
             "max_completion_tokens": max_tokens,
             "temperature": temperature,
@@ -174,7 +215,7 @@ def chat_text(
             else:
                 user_content.append(part)
     body = {
-        "model": settings.model,
+        "model": chosen,
         "max_tokens": max_tokens,
         "temperature": temperature,
         "system": system,

@@ -16,8 +16,11 @@ import yaml
 from app.export import bundle as export_bundle
 from app.gates import gate1_content, gate2_visual, gate3_judge
 from app.generation import generator, planner
+from app.generation.skill_lineage import load_skill_bundle
 from app.ingestion import ledger as ledger_mod
+from app.ingestion import ocr as ocr_mod
 from app.ingestion import pdf_parser
+from app.llm_env import get_llm_settings
 from app.models.blueprint import Blueprint
 from app.models.claim import ClaimLedger
 from app.models.document import ExtractedAsset, ParsedDocument
@@ -39,6 +42,7 @@ from app.models.run import (
 from app.models.slide import HumanComment, Scope, SlideMap, SlidePlan
 from app.paths import BLUEPRINTS_DIR, CONFIG_DIR
 from app.rendering import render as render_mod
+from app.rendering.soffice_pdf import convert_pptx_to_pdf
 from app.storage.run_store import RunStore
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
@@ -259,11 +263,22 @@ def _fixture(name: str, model: type):
     return model.model_validate_json(path.read_text(encoding="utf-8"))
 
 
+def _allow_fixtures() -> bool:
+    return bool(os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("MA_DARWIN_ALLOW_FIXTURES") == "1")
+
+
+def _pace(seconds: float = 0.35) -> None:
+    """Small delay so SSE milestones don't arrive as one burst (skipped in tests)."""
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return
+    time.sleep(seconds)
+
+
 def _call(fn: Callable, fallback: Callable | None, *args: object, **kwargs: object):
     try:
         return fn(*args, **kwargs)
     except NotImplementedError:
-        if fallback is None:
+        if fallback is None or not _allow_fixtures():
             raise
         return fallback()
 
@@ -484,8 +499,47 @@ def run_round(run_id: str, *, round_n: int | None = None) -> Round:
     rnd = Round(n=n, locked_slides=list(locked))
 
     try:
+        bundle = load_skill_bundle(run.skill_version)
+        llm = get_llm_settings()
+        emit(
+            run_id,
+            ProgressEventType.SKILL_LOADED,
+            f"Loaded {bundle.display_name()}",
+            round_n=n,
+            skill_name=bundle.display_name(),
+            skill_version=bundle.version,
+            tools=list(bundle.tools),
+        )
+        if not bundle.loaded:
+            raise RuntimeError(
+                f"Skill not found under {bundle.darwin_path or 'skills/v1'} "
+                f"or {bundle.powerpoint_path or 'skills/sundai-powerpoint'} "
+                "(Railway must copy repo-root /skills, not only /backend)."
+            )
+
         assets_dir = run_dir / "assets"
+        emit(
+            run_id,
+            ProgressEventType.LIBRARY_CALL,
+            "calling pymupdf to extract publication text and figures",
+            round_n=n,
+            tool="pymupdf",
+        )
         parsed: ParsedDocument = pdf_parser.parse_pdf(paper, assets_dir, paper_id=run.paper_id)
+
+        def _ocr_progress(event: str, message: str, fields: dict) -> None:
+            kind = {
+                "ocr_started": ProgressEventType.OCR_STARTED,
+                "ocr_page": ProgressEventType.OCR_PAGE,
+                "library_call": ProgressEventType.LIBRARY_CALL,
+            }.get(event, ProgressEventType.LIBRARY_CALL)
+            emit(run_id, kind, message, round_n=n, **fields)
+            _pace(0.15)
+
+        parsed = ocr_mod.enrich_document(paper, parsed, run_dir / "pages", on_progress=_ocr_progress)
+        (run_dir / "parsed_document.json").write_text(
+            parsed.model_dump_json(indent=2) + "\n", encoding="utf-8"
+        )
         emit(
             run_id,
             ProgressEventType.PAGES_PARSED,
@@ -501,12 +555,20 @@ def run_round(run_id: str, *, round_n: int | None = None) -> Round:
             figures=len(parsed.assets),
         )
 
+        emit(
+            run_id,
+            ProgressEventType.LIBRARY_CALL,
+            f"Venice extracting claims ({(llm.model if llm else 'heuristic fallback')})",
+            round_n=n,
+            tool="Venice chat",
+        )
         built = _call(
             ledger_mod.build_ledger,
             lambda: (_fixture("ledger.json", ClaimLedger), _fixture("numbers_index.json", NumbersIndex)),
             paper,
             paper_id=run.paper_id,
             assets_dir=assets_dir,
+            pages=parsed.pages,
         )
         claim_ledger, numbers_index = built
         ledger_mod.write_ledger_artifacts(run_dir, claim_ledger, numbers_index)
@@ -518,6 +580,13 @@ def run_round(run_id: str, *, round_n: int | None = None) -> Round:
             claims=len(claim_ledger.entries),
         )
 
+        emit(
+            run_id,
+            ProgressEventType.LIBRARY_CALL,
+            f"Venice planning slides ({(llm.model if llm else 'heuristic plan')})",
+            round_n=n,
+            tool="Venice chat planner",
+        )
         slide_plan: SlidePlan = _call(
             planner.plan_slides,
             lambda: _fixture("slide_plan.json", SlidePlan),
@@ -532,12 +601,32 @@ def run_round(run_id: str, *, round_n: int | None = None) -> Round:
             emit(
                 run_id,
                 ProgressEventType.BLUEPRINT_SLOT_FILLED,
-                f"Filling blueprint {planned.slide}/{slot_total}",
+                f"Filling blueprint {planned.slide}/{slot_total}: {planned.role}",
                 round_n=n,
                 slot=planned.slide,
                 slot_total=slot_total,
             )
+            _pace()
 
+        def _on_slide(planned) -> None:
+            emit(
+                run_id,
+                ProgressEventType.LIBRARY_CALL,
+                f"calling python-pptx for slide {planned.slide}: {planned.role}",
+                round_n=n,
+                tool="python-pptx",
+                slide=planned.slide,
+                slide_total=slot_total,
+            )
+            _pace()
+
+        emit(
+            run_id,
+            ProgressEventType.LIBRARY_CALL,
+            "calling python-pptx / add_editable_chart.py",
+            round_n=n,
+            tool="python-pptx",
+        )
         gen: GenerationResult = generator.generate_deck(
             blueprint=blueprint,
             ledger=claim_ledger,
@@ -548,6 +637,7 @@ def run_round(run_id: str, *, round_n: int | None = None) -> Round:
             locked_slides=locked,
             prior_deck_path=prior,
             assets=_load_assets(run_id) or parsed.assets,
+            on_slide=_on_slide,
         )
         rnd.deck_path = gen.deck_path
         rnd.layout_spec_path = gen.layout_spec_path or str(rdir / "layout_spec.json")
@@ -558,7 +648,24 @@ def run_round(run_id: str, *, round_n: int | None = None) -> Round:
 
             layout_spec = load_layout_spec(gen.layout_spec_path)
 
-        emit(run_id, ProgressEventType.RENDERING, "Rendering", round_n=n)
+        emit(
+            run_id,
+            ProgressEventType.LIBRARY_CALL,
+            "soffice converting deck.pptx → PDF preview",
+            round_n=n,
+            tool="soffice",
+        )
+        soffice_pdf = convert_pptx_to_pdf(gen.deck_path, rdir / "deck_from_pptx.pdf")
+        if soffice_pdf is None:
+            emit(
+                run_id,
+                ProgressEventType.LIBRARY_CALL,
+                "soffice not available — PDF preview will use the LayoutSpec render",
+                round_n=n,
+                tool="soffice",
+            )
+
+        emit(run_id, ProgressEventType.RENDERING, "Rendering slide PNGs and SVGs", round_n=n)
         rendered: RenderResult = render_mod.render_deck(
             output_dir=rdir,
             layout_spec=layout_spec,

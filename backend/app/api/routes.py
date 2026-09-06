@@ -258,8 +258,8 @@ def get_round(request: Request, run_id: str, round_n: int) -> dict[str, object]:
         from app.models.layout import LayoutSpec
 
         layout_spec = json.loads(LayoutSpec.model_validate_json(spec_path.read_text(encoding="utf-8")).model_dump_json())
-    rdir = _store(request).round_dir(run_id, round_n)
-    pdf_url = f"/runs/{run_id}/rounds/{round_n}/deck.pdf" if (rdir / "deck.pdf").is_file() else None
+    preview_pdf = f"/runs/{run_id}/rounds/{round_n}/deck.pdf"
+    pdf_url = preview_pdf if _round_preview_pdf(_store(request), run_id, round_n) else None
     return {
         "n": rnd.n,
         "deck_path": rnd.deck_path,
@@ -277,7 +277,33 @@ def get_round(request: Request, run_id: str, round_n: int) -> dict[str, object]:
         "cost_usd": rnd.cost_usd,
         "token_count": rnd.token_count,
         "slide_map": slide_map,
+        "preview_pdf_url": preview_pdf,
     }
+
+
+def _round_preview_pdf(store, run_id: str, round_n: int) -> Path | None:
+    rdir = store.round_dir(run_id, round_n)
+    for name in ("deck_from_pptx.pdf", "deck.pdf"):
+        path = rdir / name
+        if path.is_file():
+            return path
+    return None
+
+
+@router.get("/runs/{run_id}/rounds/{round_n}/deck.pdf")
+def get_deck_pdf(request: Request, run_id: str, round_n: int) -> FileResponse:
+    """In-browser PDF preview (soffice pptx→pdf preferred; LayoutSpec PDF fallback)."""
+    run = _run_or_404(request, run_id)
+    _round_or_404(run, round_n)
+    path = _round_preview_pdf(_store(request), run_id, round_n)
+    if path is None:
+        raise HTTPException(status_code=404, detail="deck PDF not ready")
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename="deck.pdf",
+        headers={"Content-Disposition": "inline; filename=deck.pdf"},
+    )
 
 
 @router.get("/runs/{run_id}/rounds/{round_n}/slides/{name}")
@@ -290,15 +316,6 @@ def get_slide_image(request: Request, run_id: str, round_n: int, name: str) -> F
         raise HTTPException(status_code=404, detail="slide image not found")
     media = "image/svg+xml" if path.suffix.lower() == ".svg" else "image/png"
     return FileResponse(path, media_type=media)
-
-
-@router.get("/runs/{run_id}/rounds/{round_n}/deck.pdf")
-def get_round_pdf(request: Request, run_id: str, round_n: int) -> FileResponse:
-    _run_or_404(request, run_id)
-    path = _store(request).round_dir(run_id, round_n) / "deck.pdf"
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="deck pdf not found")
-    return FileResponse(path, media_type="application/pdf", filename="deck.pdf")
 
 
 @router.post("/runs/{run_id}/rounds/{round_n}/comments")

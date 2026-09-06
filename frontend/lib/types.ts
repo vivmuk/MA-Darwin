@@ -205,10 +205,14 @@ export interface RoundDetail {
 }
 
 export type ProgressEventType =
+  | "skill_loaded"
+  | "ocr_started"
+  | "ocr_page"
   | "pages_parsed"
   | "claims_extracted"
   | "figures_extracted"
   | "blueprint_slot_filled"
+  | "library_call"
   | "rendering"
   | "gate1_complete"
   | "gate2_complete"
@@ -236,6 +240,10 @@ export interface ProgressEvent {
   gate_flags?: number | null;
   slide?: number | null;
   slide_total?: number | null;
+  tool?: string | null;
+  tools?: string[] | null;
+  skill_name?: string | null;
+  skill_version?: string | null;
 }
 
 export interface CreateRunResponse {
