@@ -1,0 +1,15 @@
+{
+  "name": "ma-darwin-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Backend for PDF -> PowerPoint conversion (Anthropic pptx skill). Conversion is currently mocked.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1"
+  }
+}

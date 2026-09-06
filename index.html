@@ -3,15 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PDF Upload Viewer</title>
+    <title>PDF to PowerPoint</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="container">
-      <section class="upload-panel">
+      <!-- ============ VIEW: UPLOAD ============ -->
+      <section class="upload-panel" id="uploadPanel">
         <p class="eyebrow">Document Center</p>
         <h1>Upload a PDF</h1>
-        <p class="subtitle">Choose a PDF file to preview it directly in the browser.</p>
+        <p class="subtitle">Choose a PDF file to preview it, then convert it to a PowerPoint deck.</p>
 
         <label class="upload-box" for="pdfInput">
           <input id="pdfInput" type="file" accept="application/pdf" />
@@ -25,15 +26,261 @@
         </div>
 
         <p id="statusMessage" class="status">Waiting for a PDF file...</p>
+
+        <button id="convertBtn" class="convert-btn" type="button" hidden>
+          Convert to PowerPoint
+        </button>
       </section>
 
-      <section class="viewer-panel">
+      <!-- ============ VIEW: PDF PREVIEW ============ -->
+      <section class="viewer-panel" id="previewPanel">
         <div class="viewer-header">
           <h2>Preview</h2>
         </div>
         <iframe id="pdfPreview" title="PDF preview" src="about:blank"></iframe>
       </section>
+
+      <!-- ============ VIEW: LOADING ============ -->
+      <section class="state-panel" id="loadingPanel" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <h2>Converting your PDF…</h2>
+        <p class="subtitle" id="loadingDetail">Generating slides from the document content.</p>
+      </section>
+
+      <!-- ============ VIEW: RESULT (carousel) ============ -->
+      <section class="result-panel" id="resultPanel" hidden>
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Generated deck</p>
+            <h2 id="deckTitle">PowerPoint preview</h2>
+          </div>
+          <div class="result-actions">
+            <a id="downloadBtn" class="btn-secondary" href="#" download>Download .pptx</a>
+            <button id="restartBtn" class="btn-secondary" type="button">Start over</button>
+          </div>
+        </div>
+
+        <div class="result-body">
+          <div class="result-main">
+            <div class="carousel">
+              <button class="carousel-nav prev" id="prevSlide" type="button" aria-label="Previous slide">‹</button>
+              <div class="slide-stage">
+                <img id="slideImage" alt="Slide preview" />
+              </div>
+              <button class="carousel-nav next" id="nextSlide" type="button" aria-label="Next slide">›</button>
+            </div>
+
+            <div class="carousel-footer">
+              <span id="slideCounter">Slide 1 / 1</span>
+            </div>
+
+            <div class="thumb-strip" id="thumbStrip"></div>
+          </div>
+
+          <!-- ===== notes / evaluation sidebar (deck-scoped, survives slide nav) ===== -->
+          <aside class="notes-panel" id="notesPanel">
+            <label class="notes-label" for="notesInput">
+              Your feedback — what do you like or want changed?
+            </label>
+            <textarea
+              id="notesInput"
+              class="notes-input"
+              placeholder="Type your feedback on the deck here…"
+              rows="10"
+            ></textarea>
+            <div class="notes-status">
+              <span class="saved-indicator" id="savedIndicator" hidden>Saved</span>
+            </div>
+
+            <button id="evalBtn" class="convert-btn eval-btn" type="button" disabled>
+              See AI Evaluation
+            </button>
+
+            <div class="eval-result" id="evalResult" hidden>
+              <p class="eyebrow">AI evaluation</p>
+              <p class="eval-placeholder">Your evaluation is locked.</p>
+              <button id="openEvalBtn" class="convert-btn" type="button">
+                Open AI Evaluation →
+              </button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ============ VIEW: AI EVALUATION ============ -->
+      <section class="evaluation-panel" id="evaluationPanel" hidden>
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Evaluation</p>
+            <h2>AI Evaluation &amp; Comparison</h2>
+          </div>
+          <div class="result-actions">
+            <button id="backToDeckBtn" class="btn-secondary" type="button">← Back to slides</button>
+            <button id="evalRestartBtn" class="btn-secondary" type="button">Start over</button>
+          </div>
+        </div>
+
+        <div class="eval-columns">
+          <article class="eval-card">
+            <header class="eval-card-head">
+              <h3>Your Evaluation</h3>
+              <span class="eval-tag">Locked · submitted by you</span>
+            </header>
+            <p class="eval-card-body" id="yourEvalText"></p>
+          </article>
+
+          <article class="eval-card">
+            <header class="eval-card-head">
+              <h3>AI Evaluation</h3>
+              <span class="eval-tag ai">Generated · sample output</span>
+            </header>
+            <div class="eval-card-body">
+              <h4>Structure</h4>
+              <p>
+                The deck follows the expected 8-slide M2M arc (title → disease
+                context → unmet need → evidence → safety → unknowns → references
+                → backup). Slide order is sound, but the evidence slide (4) tries
+                to carry the full study design, sample size, and three endpoints
+                in one view — it should be split. There is no standalone
+                executive-summary slide, so a reader skimming the first 20
+                seconds gets no synthesis.
+              </p>
+              <h4>Content</h4>
+              <p>
+                Claims on slides 2–4 are traceable to the source PDF. The safety
+                slide (5) is appropriately weighted but uses a dense paragraph
+                where a structured table (event, arm, rate, difference) would
+                read faster. Confidence intervals are stated inconsistently —
+                present on the primary endpoint, missing on the secondary. The
+                "what remains unknown" slide (6) is currently a single sentence
+                and under-developed relative to its importance in scientific
+                exchange.
+              </p>
+              <h4>Quality &amp; compliance</h4>
+              <p>
+                Tone is non-promotional and the DRAFT marking is retained on the
+                title slide. References list only identifiers that appear in the
+                source. Visual density is the main quality risk: 4 of 8 slides
+                exceed ~40 words of body copy, which pushes them past a
+                comfortable presenter-support threshold.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <section class="eval-analysis">
+          <h3>Analysis &amp; Suggested Improvements</h3>
+
+          <div class="analysis-block">
+            <h4>Where your feedback and the AI evaluation agreed</h4>
+            <ul class="analysis-list">
+              <li>
+                Both flagged the evidence slide (4) as overloaded — you asked for
+                "a clearer confidence interval," the AI flagged the same slide
+                for carrying too many endpoints at once.
+              </li>
+              <li>
+                Both rated the safety framing positively; no change needed to its
+                prominence or placement.
+              </li>
+            </ul>
+          </div>
+
+          <div class="analysis-block">
+            <h4>Where they diverged</h4>
+            <ul class="analysis-list">
+              <li>
+                You did not mention the missing executive-summary slide; the AI
+                evaluation raised it as a priority gap.
+              </li>
+              <li>
+                The AI called slides 2–3 "dense paragraphs"; your notes did not
+                comment on prose density outside slide 4.
+              </li>
+            </ul>
+          </div>
+
+          <div class="analysis-block">
+            <h4>Suggested changes to the PDF → PowerPoint skill</h4>
+            <ol class="skill-change-list" id="skillChangeList">
+              <li class="skill-change">
+                <span class="skill-change-tag">structure</span>
+                <div>
+                  <p class="skill-change-title">Add an executive-summary slide as slide 2</p>
+                  <p class="skill-change-detail">
+                    Insert a synthesis slide (3–4 bullets: population, key
+                    finding with effect size, key safety signal, open question)
+                    immediately after the title. Renumber the existing 8-slide
+                    outline to 9.
+                  </p>
+                </div>
+              </li>
+              <li class="skill-change">
+                <span class="skill-change-tag">density</span>
+                <div>
+                  <p class="skill-change-title">Cap body copy at ~40 words / 5 bullets per slide</p>
+                  <p class="skill-change-detail">
+                    When source content for a slide exceeds the cap, split into
+                    two slides rather than shrinking type. Prefer bullet points
+                    over multi-sentence paragraphs on slides 2–4.
+                  </p>
+                </div>
+              </li>
+              <li class="skill-change">
+                <span class="skill-change-tag">evidence</span>
+                <div>
+                  <p class="skill-change-title">Split the evidence slide into "design" and "results"</p>
+                  <p class="skill-change-detail">
+                    One slide for study design + N + population; a second for
+                    outcomes. Require a confidence interval on every reported
+                    estimate, primary and secondary — flag any estimate missing
+                    a CI in the draft.
+                  </p>
+                </div>
+              </li>
+              <li class="skill-change">
+                <span class="skill-change-tag">safety</span>
+                <div>
+                  <p class="skill-change-title">Render safety data as a table, not a paragraph</p>
+                  <p class="skill-change-detail">
+                    Columns: adverse event, arm, rate, between-arm difference.
+                    Keep the oxblood accent reserved for the safety slide only.
+                  </p>
+                </div>
+              </li>
+              <li class="skill-change">
+                <span class="skill-change-tag">completeness</span>
+                <div>
+                  <p class="skill-change-title">Expand "what remains unknown" to 3+ points</p>
+                  <p class="skill-change-detail">
+                    Require at least three distinct evidence gaps (e.g.
+                    long-term data, subgroup effects, comparator scope) rather
+                    than a single summary sentence.
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </section>
+      </section>
     </main>
+
+    <!-- ============ MODAL: lock confirmation ============ -->
+    <div class="modal-overlay" id="lockModal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lockModalText">
+        <h3 class="modal-title">Lock your evaluation?</h3>
+        <p class="modal-body" id="lockModalText">
+          Be careful! Once you click on this button, you won't be able to go back
+          and adjust your evaluation. Are you sure you want to continue?
+        </p>
+        <div class="modal-actions">
+          <button id="lockCancel" class="btn-secondary" type="button">Cancel</button>
+          <button id="lockConfirm" class="convert-btn modal-confirm" type="button">
+            Yes, continue
+          </button>
+        </div>
+      </div>
+    </div>
 
     <script src="script.js"></script>
   </body>
