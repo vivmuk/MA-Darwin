@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from app.generation.skill_lineage import load_skill_text
+from app.generation.skill_lineage import load_skill_bundle, load_skill_text
 from app.llm_env import chat_text, llm_configured
 from app.models.blueprint import Blueprint
 from app.models.claim import ClaimLedger
@@ -32,20 +32,26 @@ def plan_slides(
         raise NotImplementedError
 
     prompt = _load_prompt(prompt_path)
-    skill = load_skill_text(skill_version)
+    bundle = load_skill_bundle(skill_version)
+    skill = bundle.text or load_skill_text(skill_version)
     payload = {
         "blueprint": json.loads(blueprint.model_dump_json()),
         "brief": json.loads(brief.model_dump_json()),
         "skill_version": skill_version,
+        "skill_name": bundle.display_name(),
         "ledger": json.loads(ledger.model_dump_json()),
         "one_off_comments": [json.loads(c.model_dump_json()) for c in (one_off_comments or [])],
     }
+    # Keep both Darwin (skills/v1) and sundai-powerpoint. 48k leaves house-rules intact.
+    skill_block = skill[:48000] if skill else "(skill files missing on this host)"
     system = (
         prompt
-        + "\n\nYou also receive the active sundai-powerpoint skill. Honour its "
-        "8-slide M2M rules, DRAFT marking, speaker notes, and editable-chart "
-        "requirement. Do not emit python-pptx or OOXML.\n\n"
-        + skill[:24000]
+        + "\n\nYou receive the active MA-Darwin skill AND the sundai-powerpoint "
+        f"skill ({bundle.display_name()}). Honour 8-slide M2M structure, DRAFT "
+        "marking, Arial + teal top rule, speaker notes on every slide, citation "
+        "footers, dedicated safety slide, dense limitations, and editable-chart "
+        "requirement on quantitative slides. Do not emit python-pptx or OOXML.\n\n"
+        + skill_block
         + "\n\nReturn ONLY a SlidePlan JSON object. For quantitative slides "
         "(evidence / primary_endpoint / safety with ≥3 series or categories) "
         "include a `chart` object: {title, categories, series:[{name, values}]} "

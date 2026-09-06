@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -42,6 +43,7 @@ def write_skill_pptx(
     assets: list[ExtractedAsset] | None = None,
     prior_spec: LayoutSpec | None = None,
     locked_slides: list[int] | None = None,
+    on_slide: Callable[..., None] | None = None,
 ) -> Path:
     """Build a consulting-grade M2M deck. Venice never writes this file."""
     dest = Path(output_path)
@@ -58,8 +60,10 @@ def write_skill_pptx(
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         if planned.slide in locked and planned.slide in prior_by_slide:
             _paint_from_prior(slide, planned, prior_by_slide[planned.slide], claims)
-            continue
-        _paint_slide(slide, planned, claims, assets_by_id)
+        else:
+            _paint_slide(slide, planned, claims, assets_by_id)
+        if on_slide is not None:
+            on_slide(planned)
     prs.save(str(dest))
     _try_validate(dest)
     return dest
@@ -69,6 +73,9 @@ def _paint_slide(slide, planned: SlidePlanSlide, claims: dict, assets_by_id: dic
     _bar(slide, PALETTE["teal"] if planned.role != "safety" else PALETTE["oxblood"])
     if planned.role == "title":
         _textbox(slide, 0.5, 0.28, 2.2, 0.32, "DRAFT", size=11, bold=True, color=PALETTE["oxblood"])
+    else:
+        eyebrow = (planned.role or "").replace("_", " ").upper()
+        _textbox(slide, 0.5, 0.22, 8.0, 0.28, eyebrow, size=11, bold=True, color=PALETTE["teal"])
     _textbox(slide, 0.5, 0.55, 12.3, 1.05, planned.headline, size=26, bold=True, color=PALETTE["navy"])
 
     body_top = 1.75

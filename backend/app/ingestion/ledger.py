@@ -162,16 +162,21 @@ def build_ledger(
     *,
     paper_id: str,
     assets_dir: Path | str | None = None,
+    pages: list[PageText] | None = None,
 ) -> tuple[ClaimLedger, NumbersIndex]:
-    """End-to-end ingestion: parse PDF, build numbers index, extract and validate claims."""
+    """End-to-end ingestion: parse PDF, build numbers index, extract and validate claims.
+
+    Pass OCR-enriched ``pages`` from the orchestrator so claim extraction uses
+    the same text the publication-extract step produced.
+    """
     from app.ingestion.pdf_parser import extract_assets, extract_pages
 
-    pages = extract_pages(pdf_path)
+    resolved = list(pages) if pages is not None else extract_pages(pdf_path)
     if assets_dir is not None:
         extract_assets(pdf_path, assets_dir)
-    numbers_index = build_numbers_index(pages, paper_id=paper_id)
-    candidate = extract_claims(pages, numbers_index, paper_id=paper_id)
-    ledger = validate_verbatim(candidate, pages)
+    numbers_index = build_numbers_index(resolved, paper_id=paper_id)
+    candidate = extract_claims(resolved, numbers_index, paper_id=paper_id)
+    ledger = validate_verbatim(candidate, resolved)
     return ledger, numbers_index
 
 
