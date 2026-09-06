@@ -16,3 +16,5 @@ See [README.md](README.md) for how to write a good one.
 ## YOUR RULES — ADD BELOW THIS LINE
 
 - Quantitative multi-series slides (≥3 series or ≥3 categories) require an **editable** native OOXML PowerPoint chart with embedded Excel (python-pptx / pptxgenjs). SVG figures or a companion editable .xlsx are also allowed. Matplotlib/raster PNG embeds are last-resort fallback only when native charts cannot be created — and must be called out in speaker notes. Bullets alone are not enough; native editable charts are the primary path (not optional decoration).
+- Do **not** duplicate chart title and legend with identical text (e.g. both "Overall pooled %"). Prefer data labels or an axis title; use a legend only if ≥2 series.
+- Spell out clinical terms on physician decks (e.g. "complications", not "cx" unless defined once on-slide).
