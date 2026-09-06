@@ -14,7 +14,7 @@
           "customName": "Install ma-darwin from pyproject.toml"
         },
         {
-          "cmd": "NEXT_TELEMETRY_DISABLED=1 npm ci --prefix frontend && NEXT_TELEMETRY_DISABLED=1 npm run build:static --prefix frontend && rm -rf backend/web && cp -r frontend/out backend/web",
+          "cmd": "sh -c 'npm ci --prefix frontend && npm run build:static --prefix frontend && rm -rf backend/web && cp -r frontend/out backend/web'",
           "customName": "Export Next.js UI for FastAPI"
         }
       ]
