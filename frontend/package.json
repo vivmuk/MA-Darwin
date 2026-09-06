@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
+    "build:static": "node scripts/build-static.mjs",
     "start": "next start --port 3000",
     "lint": "next lint",
     "test": "tsx --test lib/parse-brief.test.ts lib/export-blockers.test.ts"

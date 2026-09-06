@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.frontend_static import mount_frontend
 from app.api.routes import router
 from app.llm_env import ensure_dotenv
 from app.paths import RUNS_DIR
@@ -51,6 +52,7 @@ def create_app(*, store: RunStore | None = None, check_fonts: bool = True) -> Fa
     )
     application.include_router(router)
     application.include_router(router, prefix="/api")
+    mount_frontend(application)
     if store is not None:
         application.state.store = store
     return application

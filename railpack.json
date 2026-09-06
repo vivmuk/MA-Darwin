@@ -2,7 +2,8 @@
   "$schema": "https://schema.railpack.com",
   "provider": "python",
   "packages": {
-    "python": "3.12"
+    "python": "3.12",
+    "node": "22"
   },
   "steps": {
     "build": {
@@ -11,6 +12,10 @@
         {
           "cmd": "pip install -e .",
           "customName": "Install ma-darwin from pyproject.toml"
+        },
+        {
+          "cmd": "NEXT_TELEMETRY_DISABLED=1 npm ci --prefix frontend && NEXT_TELEMETRY_DISABLED=1 npm run build:static --prefix frontend && rm -rf backend/web && cp -r frontend/out backend/web",
+          "customName": "Export Next.js UI for FastAPI"
         }
       ]
     }

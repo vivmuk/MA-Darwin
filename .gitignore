@@ -11,3 +11,5 @@ runs/*
 .env
 DIAGNOSIS.md
 *.tsbuildinfo
+backend/web/
+frontend/app/.api-parked-for-static-export

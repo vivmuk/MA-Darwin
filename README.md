@@ -11,7 +11,7 @@ skill, regenerates, and keeps the winner.
 - **Hands:** `skills/sundai-powerpoint/scripts/add_slide.py` + `add_editable_chart.py`
 - **Ingest:** Jay’s page-level claim ledger (`pymupdf` / `pdfplumber` / `pypdf`)
 - **UI:** Viv’s intro → Zac’s lock-eval → AI eval → skill mutate → A/B
-- **Deploy:** two Railway services — see [docs/RAILWAY.md](docs/RAILWAY.md)
+- **Deploy:** one Railway service serves the UI at `/` and the API at `/api` — see [docs/RAILWAY.md](docs/RAILWAY.md)
 
 ## Deck-generation environment
 
@@ -66,5 +66,5 @@ Dockerfile.backend           # Python + LibreOffice + fonts
 Dockerfile.frontend          # Next.js
 requirements.txt             # Triggers Railpack pip install (pyproject.toml alone is not enough)
 railpack.json                # Railpack start command if Railway skips the Dockerfile
-docs/RAILWAY.md              # Two-service deploy
+docs/RAILWAY.md              # Railway: UI at / , API at /api
 ```
