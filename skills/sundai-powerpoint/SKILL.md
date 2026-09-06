@@ -9,7 +9,7 @@ description: >-
 license: >-
   Anthropic pptx scripts: see LICENSE.txt. Medical Affairs rules: Apache-2.0.
 metadata:
-  version: "3.0.0-darwin"
+  version: "3.1.0-darwin"
   tier: workflow
   maturity: hack
   scope: one-pdf-to-m2m-deck
@@ -29,6 +29,32 @@ mechanics). Content and compliance rules are inlined below.
 
 Output is always **DRAFT for qualified medical review**. Keep DRAFT on the
 title slide. Never call the deck compliant, approved, or ready to submit.
+
+---
+
+## Hackathon test prompt (use this for testing)
+
+When testing this skill, run exactly this ask:
+
+> Create an 8-slide medical affairs MSL deck to present to a physician.
+> Source: exactly one PDF (or, if no PDF is provided, a clearly labeled
+> synthetic workshop package). Audience: treating physician / HCP.
+> Non-promotional M2M scientific exchange only.
+
+Required 8-slide outline (map to M2M structure):
+
+1. Title (DRAFT) — audience, evidence class, approval-status note
+2. Disease context
+3. Unmet need
+4. The evidence (finding-title with design, N, CIs; citation footer)
+5. Safety (same prominence as efficacy; oxblood reserved for safety)
+6. What remains unknown
+7. References (only retrieved identifiers)
+8. Backup — anticipated physician questions (not leftover content)
+
+If no PDF is attached, mark every data claim **SYNTHETIC EXAMPLE** and do not
+present numbers as real evidence. Prefer python-pptx or pptxgenjs under
+`scripts/`.
 
 ---
 
@@ -70,7 +96,8 @@ medical rules and DRAFT marking, and name what was missing to render pptx.
 
 ### 4) Build the M2M deck (only after 1–3)
 
-Structure:
+Default to the **8-slide physician MSL outline** in the test prompt above when
+the user asks for an MSL/physician deck. Otherwise use:
 
 ```
 Title (DRAFT)
@@ -98,7 +125,7 @@ Good: ORR 63% (single-arm, n=165). Bad: Substantial activity.
 Every data slide: citation in footer; design named; N + population; CIs;
 evidence tier if not peer-reviewed (`[abstract]` / `[preprint]` / `[data on file]`).
 
-Palette for pptxgenjs (no `#` in color strings):
+Palette (no `#` in pptxgenjs color strings):
 
 | Role | Hex | Use |
 |---|---|---|
@@ -111,8 +138,7 @@ Palette for pptxgenjs (no `#` in color strings):
 | White | FFFFFF | Content background |
 
 One idea per slide. Margins at least 0.5 inch. Left-align body. No title
-underlines, no decorative sidebars, no cream backgrounds. Prefer native
-charts. Keep decorative images off data slides.
+underlines, no decorative sidebars, no cream backgrounds.
 
 ### 5) Challenge
 
@@ -135,7 +161,7 @@ eye-checked numbers, citation list), open gaps, DRAFT intact.
 
 | Task | Approach |
 |---|---|
-| Create | pptxgenjs script |
+| Create | pptxgenjs or python-pptx |
 | Edit | unzip, edit slide XML, zip |
 | Read | markitdown deck.pptx |
 | Thumbnails | python scripts/thumbnail.py deck.pptx prefix |
@@ -159,7 +185,7 @@ Gotchas:
 
 ## Done when
 
-- Exactly one PDF was used as the evidence source
+- Exactly one PDF was used as the evidence source (or synthetic test marked as such)
 - No hallucinated unread content
 - M2M structure + fair balance + real citations + DRAFT
 - Valid pptx or explicit degraded delivery with full content
