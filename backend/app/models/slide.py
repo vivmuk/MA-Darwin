@@ -42,6 +42,21 @@ class SlidePlanFigure(BaseModel):
     page: int = Field(..., ge=1)
 
 
+class ChartSeries(BaseModel):
+    """One editable-chart series (OOXML + embedded Excel)."""
+
+    name: str
+    values: list[float] = Field(default_factory=list)
+
+
+class SlideChart(BaseModel):
+    """Skill-writer chart payload — never a raster substitute."""
+
+    title: str = ""
+    categories: list[str] = Field(default_factory=list)
+    series: list[ChartSeries] = Field(default_factory=list)
+
+
 class SlidePlanSlide(BaseModel):
     """One slide in the pre-layout plan (Prompt 4 two-stage generation)."""
 
@@ -52,6 +67,10 @@ class SlidePlanSlide(BaseModel):
     figures: list[SlidePlanFigure] = Field(default_factory=list)
     speaker_notes: str = ""
     required_content_filled: list[str] = Field(default_factory=list)
+    bullets: list[str] = Field(default_factory=list)
+    citation: str = ""
+    body: str = ""
+    chart: SlideChart | None = None
 
 
 class SlidePlan(BaseModel):

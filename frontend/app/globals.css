@@ -15,15 +15,21 @@ body {
 
 body {
   background:
-    radial-gradient(1200px 600px at 10% -10%, #fff8e8 0%, transparent 50%),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 27px,
-      rgba(184, 134, 11, 0.05) 28px
-    ),
-    #f3eee2;
-  color: #1b1914;
+    radial-gradient(1200px 600px at 12% 4%, #fffdf8 0%, transparent 36%),
+    linear-gradient(90deg, rgba(43, 91, 77, 0.025) 1px, transparent 1px),
+    linear-gradient(rgba(43, 91, 77, 0.025) 1px, transparent 1px),
+    #f4f0e6;
+  background-size: auto, 26px 26px, 26px 26px, auto;
+  color: #173f3c;
+}
+
+.bg-grid {
+  background:
+    radial-gradient(ellipse at 50% 47%, #dceadeaa, transparent 57%),
+    linear-gradient(90deg, rgba(39, 99, 81, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(39, 99, 81, 0.045) 1px, transparent 1px),
+    #f7faf1;
+  background-size: auto, 22px 22px, 22px 22px, auto;
 }
 
 .zone {

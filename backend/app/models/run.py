@@ -56,6 +56,7 @@ class HumanReviewState(BaseModel):
         default_factory=list,
         description="Claim IDs of synthesized claims explicitly approved by a human",
     )
+    evaluation_locked: bool = False
 
 
 class MutationKind(str, Enum):

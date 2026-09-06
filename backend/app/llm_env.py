@@ -67,7 +67,7 @@ def get_llm_settings() -> LlmSettings | None:
         return LlmSettings(
             api_key=venice_key,
             url=f"{base}/chat/completions",
-            model=os.environ.get("VENICE_MODEL", "venice-uncensored"),
+            model=os.environ.get("VENICE_MODEL", "claude-opus-4-8"),
             headers={
                 "Authorization": f"Bearer {venice_key}",
                 "Content-Type": "application/json",
@@ -133,10 +133,15 @@ def chat_text(
         body: dict[str, Any] = {
             "model": settings.model,
             "messages": messages,
-            "max_tokens": max_tokens,
+            "max_completion_tokens": max_tokens,
             "temperature": temperature,
         }
-        with httpx.Client(timeout=120.0) as client:
+        if settings.provider == "venice":
+            body["venice_parameters"] = {
+                "include_venice_system_prompt": False,
+                "strip_thinking_response": True,
+            }
+        with httpx.Client(timeout=300.0) as client:
             response = client.post(settings.url, headers=settings.headers, json=body)
             response.raise_for_status()
             data = response.json()

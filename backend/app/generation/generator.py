@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from app.generation.layout import compose_layout_spec, load_layout_spec, write_layout_spec
-from app.generation.pptx_writer import write_pptx
+from app.generation.skill_writer import write_skill_pptx
 from app.models.blueprint import Blueprint
 from app.models.claim import ClaimLedger, ClaimLedgerEntry
 from app.models.document import ExtractedAsset
@@ -34,7 +34,6 @@ def generate_deck(
     """
     if any(arg is None for arg in (blueprint, ledger, brief, slide_plan)):
         raise NotImplementedError
-    del skill_version
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -52,7 +51,15 @@ def generate_deck(
         locked_slides=locked_slides,
     )
     spec_path = write_layout_spec(spec, out / "layout_spec.json")
-    deck_path = write_pptx(spec, out / "deck.pptx")
+    deck_path = write_skill_pptx(
+        slide_plan,
+        ledger,
+        out / "deck.pptx",
+        assets=assets,
+        prior_spec=prior_spec,
+        locked_slides=locked_slides,
+    )
+    del skill_version
 
     claims = {entry.id: entry for entry in ledger.entries}
     slide_map = _slide_map_from_spec(spec, deck_path)

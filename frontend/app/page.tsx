@@ -1,5 +1,5 @@
-import { RunApp } from "@/components/RunApp";
+import { Landing } from "@/components/Landing";
 
 export default function Page() {
-  return <RunApp />;
+  return <Landing />;
 }

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MA-Darwin — Review desk",
-  description: "Generate, gate, and review MSL physician decks from a claim ledger.",
+  title: "MA·Darwin",
+  description: "One PDF → one M2M deck. Revise the skill, keep what works.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

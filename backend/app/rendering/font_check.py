@@ -185,11 +185,21 @@ def list_installed_fonts() -> list[str]:
     return sorted({n for n in names if n and n != n.lower()} | {n for n in names if n == n.lower()})
 
 
+# Metric-compatible families used on Linux/Railway when Arial/Calibri are absent.
+_FONT_ALIASES = {
+    "arial": {"liberation sans", "liberation sans narrow", "nimbus sans l", "nimbus sans"},
+    "calibri": {"carlito", "liberation sans"},
+}
+
+
 def _is_installed(required: str, installed: list[str]) -> bool:
     target = required.strip().lower()
     installed_lower = {name.lower() for name in installed}
     if target in installed_lower:
         return True
+    for alias in _FONT_ALIASES.get(target, ()):
+        if alias in installed_lower:
+            return True
     # "Arial" matches "Arial Black" only as a prefix-with-space? Require exact
     # family or "Family (TrueType)" already stripped. Also accept startswith
     # when the next char is missing (exact) — already handled.

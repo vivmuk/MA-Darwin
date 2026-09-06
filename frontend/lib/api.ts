@@ -104,6 +104,45 @@ export function overrideScore(
   });
 }
 
+export function lockEvaluation(runId: string, roundN: number, locked = true) {
+  return req<{ evaluation_locked: boolean }>(`/api/runs/${runId}/rounds/${roundN}/lock-evaluation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ locked }),
+  });
+}
+
+export function suggestSkill(runId: string, roundN: number) {
+  return req<import("./types").SkillSuggestionFile>(`/api/runs/${runId}/rounds/${roundN}/suggest-skill`, {
+    method: "POST",
+  });
+}
+
+export function applySkill(runId: string, suggestions: string[]) {
+  return req<StartRunResponse>(`/api/runs/${runId}/apply-skill`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ suggestions }),
+  });
+}
+
+export function decideWinner(runId: string, winnerRoundN: number, activateSkillVersion?: string) {
+  return req<{ best_round_n: number; skill_version: string }>(`/api/runs/${runId}/decide`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      winner_round_n: winnerRoundN,
+      activate_skill_version: activateSkillVersion ?? null,
+    }),
+  });
+}
+
+export function mediaSrc(path: string): string {
+  if (!path || path.startsWith("http") || path.startsWith("data:")) return path;
+  const prefixed = path.startsWith("/api/") ? path : `/api${path.startsWith("/") ? path : `/${path}`}`;
+  return `${BASE}${prefixed}`;
+}
+
 export function exportUrl(runId: string, roundN?: number): string {
   const q = roundN ? `?round_n=${roundN}` : "";
   return `${BASE}/api/runs/${runId}/export${q}`;

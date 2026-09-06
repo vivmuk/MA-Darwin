@@ -675,18 +675,18 @@ def _auto_loop(run_id: str, rnd: Round) -> Round:
     return rnd
 
 
-def start_run(run_id: str) -> Round:
+def start_run(run_id: str, *, auto: bool = True) -> Round:
     """Kick off round 1 for a run (API ``POST /runs/{id}/start``)."""
     run = get_store().get_run(run_id)
     if run.rounds:
         raise RuntimeError("run already has rounds")
-    if run.status not in (RunStatus.CREATED,):
+    if run.status not in (RunStatus.CREATED, RunStatus.RUNNING):
         raise RuntimeError(f"cannot start run in status {run.status.value}")
     rnd = run_round(run_id, round_n=1)
-    return _auto_loop(run_id, rnd)
+    return _auto_loop(run_id, rnd) if auto else rnd
 
 
-def reiterate(run_id: str) -> Round:
+def reiterate(run_id: str, *, auto: bool = True) -> Round:
     """Start the next round after human review (API ``POST /runs/{id}/reiterate``)."""
     run = get_store().get_run(run_id)
     if run.status not in (RunStatus.AWAITING_REVIEW, RunStatus.PLATEAU):
@@ -699,7 +699,7 @@ def reiterate(run_id: str) -> Round:
     }:
         raise RuntimeError(decision.message)
     rnd = run_round(run_id)
-    return _auto_loop(run_id, rnd)
+    return _auto_loop(run_id, rnd) if auto else rnd
 
 
 def export_blockers(run: Run, *, round_n: int) -> str:

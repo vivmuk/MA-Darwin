@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import tempfile
+import threading
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.evolution import regression
+from app.capabilities import deck_capabilities
+from app.evolution import darwin, regression
 from app.export import bundle as export_bundle
+from app.generation.skill_lineage import list_versions, read_active, resolve_skill_dir, set_active
 from app.models.run import Brief, ProgressEventType, Run, RunStatus, ScoreOverride
 from app.models.slide import CommentsFile, HumanComment
 from app.orchestrator import (
@@ -46,6 +50,19 @@ class LockSlidesResponse(BaseModel):
     locked_slides: list[int]
 
 
+class LockEvaluationRequest(BaseModel):
+    locked: bool = True
+
+
+class ApplySkillRequest(BaseModel):
+    suggestions: list[str] = Field(default_factory=list)
+
+
+class DecideRequest(BaseModel):
+    winner_round_n: int
+    activate_skill_version: str | None = None
+
+
 def _store(request: Request):
     store = getattr(request.app.state, "store", None)
     if store is not None:
@@ -74,6 +91,21 @@ def _round_or_404(run: Run, round_n: int):
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@router.get("/health/capabilities")
+def health_capabilities() -> dict[str, object]:
+    return {"status": "ok", "capabilities": deck_capabilities()}
+
+
+@router.get("/skills/active")
+def skill_active() -> dict[str, object]:
+    version = read_active()
+    return {
+        "version": version,
+        "path": str(resolve_skill_dir(version)),
+        "versions": list_versions(),
+    }
 
 
 @router.post("/runs", status_code=201)
@@ -159,8 +191,8 @@ def start_run_route(request: Request, run_id: str) -> dict[str, object]:
     run = _run_or_404(request, run_id)
     if run.rounds or run.status != RunStatus.CREATED:
         raise HTTPException(status_code=409, detail="run already started")
-    try:
-        rnd = start_run(run_id)
+    if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("MA_DARWIN_SYNC_JOBS") == "1":
+        rnd = start_run(run_id, auto=False)
         status = get_store().get_run(run_id).status.value
         return {
             "run_id": run_id,
@@ -168,9 +200,23 @@ def start_run_route(request: Request, run_id: str) -> dict[str, object]:
             "status": status,
             "events_url": f"/runs/{run_id}/events",
         }
-    except Exception as exc:
-        emit(run_id, ProgressEventType.ERROR, str(exc), round_n=1)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    run.status = RunStatus.RUNNING
+    persist_run(run)
+
+    def _job() -> None:
+        try:
+            start_run(run_id, auto=False)
+        except Exception as exc:
+            emit(run_id, ProgressEventType.ERROR, str(exc), round_n=1)
+
+    threading.Thread(target=_job, daemon=True).start()
+    return {
+        "run_id": run_id,
+        "round_n": 1,
+        "status": RunStatus.RUNNING.value,
+        "events_url": f"/runs/{run_id}/events",
+    }
 
 
 @router.get("/runs/{run_id}/events")
@@ -296,8 +342,9 @@ def reiterate_route(request: Request, run_id: str) -> dict[str, object]:
     run = _run_or_404(request, run_id)
     if run.status not in (RunStatus.AWAITING_REVIEW, RunStatus.PLATEAU):
         raise HTTPException(status_code=409, detail=f"cannot reiterate from status {run.status.value}")
-    try:
-        rnd = reiterate(run_id)
+    next_n = (run.rounds[-1].n + 1) if run.rounds else 1
+    if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("MA_DARWIN_SYNC_JOBS") == "1":
+        rnd = reiterate(run_id, auto=False)
         status = get_store().get_run(run_id).status.value
         return {
             "run_id": run_id,
@@ -305,11 +352,23 @@ def reiterate_route(request: Request, run_id: str) -> dict[str, object]:
             "status": status,
             "events_url": f"/runs/{run_id}/events",
         }
-    except RuntimeError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except Exception as exc:
-        emit(run_id, ProgressEventType.ERROR, str(exc))
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    run.status = RunStatus.RUNNING
+    persist_run(run)
+
+    def _job() -> None:
+        try:
+            reiterate(run_id, auto=False)
+        except Exception as exc:
+            emit(run_id, ProgressEventType.ERROR, str(exc), round_n=next_n)
+
+    threading.Thread(target=_job, daemon=True).start()
+    return {
+        "run_id": run_id,
+        "round_n": next_n,
+        "status": RunStatus.RUNNING.value,
+        "events_url": f"/runs/{run_id}/events",
+    }
 
 
 @router.get("/runs/{run_id}/export")
@@ -323,7 +382,11 @@ def export_run(request: Request, run_id: str, round_n: int | None = None):
     if blocker:
         return JSONResponse(status_code=403, content={"detail": blocker})
     try:
-        result = export_bundle.create_bundle(run_id, round_n=n)
+        result = export_bundle.create_bundle(run_id, round_n=n, store=_store(request))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        return JSONResponse(status_code=501, content={"detail": str(exc)})
     except PermissionError as exc:
         return JSONResponse(status_code=403, content={"detail": str(exc)})
     except NotImplementedError:
@@ -332,6 +395,53 @@ def export_run(request: Request, run_id: str, round_n: int | None = None):
     if not path.is_file():
         raise HTTPException(status_code=500, detail="export bundle missing on disk")
     return FileResponse(path, media_type="application/zip", filename=path.name)
+
+
+@router.post("/runs/{run_id}/rounds/{round_n}/lock-evaluation")
+def lock_evaluation(request: Request, run_id: str, round_n: int, body: LockEvaluationRequest) -> dict[str, object]:
+    run = _run_or_404(request, run_id)
+    rnd = _round_or_404(run, round_n)
+    rnd.human.evaluation_locked = body.locked
+    run.rounds = [rnd if r.n == rnd.n else r for r in run.rounds]
+    persist_run(run)
+    return {"evaluation_locked": rnd.human.evaluation_locked}
+
+
+@router.post("/runs/{run_id}/rounds/{round_n}/suggest-skill")
+def suggest_skill(request: Request, run_id: str, round_n: int) -> dict[str, object]:
+    run = _run_or_404(request, run_id)
+    rnd = _round_or_404(run, round_n)
+    if not rnd.human.evaluation_locked:
+        raise HTTPException(status_code=409, detail="lock your evaluation before requesting skill suggestions")
+    rdir = _store(request).round_dir(run_id, round_n)
+    artifact = darwin.suggest_skill_changes(run, rnd, output_path=rdir / "suggestions.json")
+    return json.loads(artifact.model_dump_json())
+
+
+@router.post("/runs/{run_id}/apply-skill", status_code=202)
+def apply_skill(request: Request, run_id: str, body: ApplySkillRequest) -> dict[str, object]:
+    run = _run_or_404(request, run_id)
+    if run.status not in (RunStatus.AWAITING_REVIEW, RunStatus.PLATEAU):
+        raise HTTPException(status_code=409, detail=f"cannot apply skill from status {run.status.value}")
+    texts = [t.strip() for t in body.suggestions if t.strip()]
+    if not texts:
+        raise HTTPException(status_code=400, detail="no skill suggestions to apply")
+    version = darwin.apply_skill_suggestions(texts, from_version=run.skill_version)
+    run.skill_version = version
+    persist_run(run)
+    return reiterate_route(request, run_id)
+
+
+@router.post("/runs/{run_id}/decide")
+def decide_winner(request: Request, run_id: str, body: DecideRequest) -> dict[str, object]:
+    run = _run_or_404(request, run_id)
+    _round_or_404(run, body.winner_round_n)
+    run.best_round_n = body.winner_round_n
+    if body.activate_skill_version:
+        set_active(body.activate_skill_version)
+        run.skill_version = body.activate_skill_version
+    persist_run(run)
+    return {"best_round_n": run.best_round_n, "skill_version": run.skill_version}
 
 
 @router.post("/skills/{version}/activate")

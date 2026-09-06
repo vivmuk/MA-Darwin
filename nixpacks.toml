@@ -1,0 +1,17 @@
+# Used if the backend service is detected as a Python app without Dockerfile.
+# Prefer Dockerfile.backend on Railway so LibreOffice actually installs.
+
+[phases.setup]
+nixPkgs = ["python312", "libreoffice", "poppler_utils", "cairo", "pango"]
+aptPkgs = [
+  "libreoffice-impress",
+  "fonts-liberation",
+  "fonts-crosextra-carlito",
+  "fonts-dejavu-core",
+  "poppler-utils",
+  "libcairo2",
+  "libpango-1.0-0",
+]
+
+[start]
+cmd = "PYTHONPATH=backend uvicorn app.api.app:app --host 0.0.0.0 --port ${PORT:-8000}"

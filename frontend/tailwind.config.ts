@@ -5,8 +5,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#1b1914",
-        paper: "#f3eee2",
+        ink: "#173f3c",
+        paper: "#fffdf6",
+        sand: "#f4f0e6",
+        muted: "#687b74",
+        teal: "#28584f",
+        pink: "#cf4f79",
         rule: "#d8cfc0",
         brass: "#b8860b",
         flag: "#c23b22",
@@ -15,7 +19,7 @@ const config: Config = {
         deckonly: "#1f4e5f",
       },
       fontFamily: {
-        display: ['"Fraunces"', "Georgia", "serif"],
+        display: ['"Segoe Print"', '"Comic Sans MS"', "cursive"],
         sans: ['"IBM Plex Sans"', "system-ui", "sans-serif"],
         mono: ['"IBM Plex Mono"', "ui-monospace", "monospace"],
       },

@@ -4,7 +4,11 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const upstream = process.env.API_UPSTREAM;
     if (!upstream) return [];
-    return [{ source: "/upstream/:path*", destination: `${upstream}/:path*` }];
+    const base = upstream.replace(/\/$/, "");
+    return [
+      { source: "/api/:path*", destination: `${base}/:path*` },
+      { source: "/upstream/:path*", destination: `${base}/:path*` },
+    ];
   },
 };
 

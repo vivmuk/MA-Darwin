@@ -101,6 +101,20 @@ export interface HumanReviewState {
   approved_slides: number[];
   score_overrides: ScoreOverride[];
   synthesized_approvals: string[];
+  evaluation_locked?: boolean;
+}
+
+export interface SkillSuggestion {
+  id: string;
+  text: string;
+  rationale?: string;
+}
+
+export interface SkillSuggestionFile {
+  run_id: string;
+  round_n: number;
+  skill_version: string;
+  suggestions: SkillSuggestion[];
 }
 
 export interface MutationRecord {
