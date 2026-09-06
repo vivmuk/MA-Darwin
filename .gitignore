@@ -9,3 +9,5 @@ runs/*
 !runs/.gitkeep
 *.sqlite3
 .env
+DIAGNOSIS.md
+*.tsbuildinfo
