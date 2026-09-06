@@ -39,6 +39,9 @@ const evalHistoryBtn = document.getElementById('evalHistoryBtn');
 const toast = document.getElementById('toast');
 const toastMsg = document.getElementById('toastMsg');
 const toastUndo = document.getElementById('toastUndo');
+const emptySuggestions = document.getElementById('emptySuggestions');
+const evalResetBtn = document.getElementById('evalResetBtn');
+const historyResetBtn = document.getElementById('historyResetBtn');
 
 const regenPanel = document.getElementById('regenPanel');
 const regenTitle = document.getElementById('regenTitle');
@@ -524,7 +527,43 @@ function refreshApplyButton() {
   applyChangesBtn.textContent = empty
     ? 'No suggestions to apply'
     : 'Apply changes & regenerate';
+
+  // Show the "everything's been tried" helper only when the list is empty
+  // *because* the catalogue is exhausted (not just mid-session with 0 shown).
+  const exhausted = empty && getRejected().length >= ALL_SUGGESTIONS.length;
+  emptySuggestions.hidden = !exhausted;
 }
+
+/* ---------- reset mock skill data ---------- */
+function resetSkillData() {
+  [HISTORY_KEY, REJECTED_KEY, ACTIVE_VERSION_KEY].forEach((k) => {
+    try {
+      localStorage.removeItem(k);
+    } catch {
+      /* ignore */
+    }
+  });
+  toastMsg.textContent = 'Skill history & rejected suggestions cleared';
+  toast.hidden = false;
+  clearTimeout(resetToastTimer);
+  resetToastTimer = setTimeout(() => {
+    if (toastMsg.textContent.startsWith('Skill history')) toast.hidden = true;
+  }, 3000);
+  toastUndo.hidden = true; // nothing to undo for a reset
+
+  buildRoundSuggestions();
+  renderSuggestionList();
+}
+let resetToastTimer = null;
+
+evalResetBtn.addEventListener('click', () => {
+  resetSkillData();
+  showView('evaluation');
+});
+historyResetBtn.addEventListener('click', () => {
+  resetSkillData();
+  openHistory(historyReturnView);
+});
 
 /* ---------- inline edit / delete ---------- */
 skillChangeList.addEventListener('click', (e) => {
@@ -567,6 +606,7 @@ function deleteSuggestion(id) {
 function showUndoToast(item, index) {
   clearPendingUndo();
   toastMsg.textContent = 'Suggestion removed';
+  toastUndo.hidden = false;
   toast.hidden = false;
   const timer = setTimeout(clearPendingUndo, 5000);
   pendingUndo = { item, index, timer };

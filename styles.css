@@ -750,6 +750,16 @@ h1 {
   color: #bfdbfe;
 }
 
+.empty-suggestions {
+  margin: 12px 0 0;
+  padding: 14px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+
 .rejected-note {
   margin: 0 0 12px;
   padding: 10px 12px;

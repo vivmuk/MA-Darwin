@@ -204,6 +204,11 @@
             <h4>Suggested changes to the PDF → PowerPoint skill</h4>
             <p class="rejected-note" id="rejectedNote" hidden></p>
             <ol class="skill-change-list" id="skillChangeList"></ol>
+            <p class="empty-suggestions" id="emptySuggestions" hidden>
+              Every suggestion in the catalogue has already been tried and
+              rejected for this skill, so there is nothing new to propose.
+              Reset the skill's mock history to run the loop again.
+            </p>
           </div>
 
           <div class="analysis-actions">
@@ -212,6 +217,9 @@
             </button>
             <button id="evalHistoryBtn" class="btn-secondary" type="button">
               Version history
+            </button>
+            <button id="evalResetBtn" class="btn-secondary" type="button">
+              Reset skill data
             </button>
           </div>
         </section>
@@ -329,6 +337,7 @@
             <h2>Version history</h2>
           </div>
           <div class="result-actions">
+            <button id="historyResetBtn" class="btn-secondary" type="button">Reset skill data</button>
             <button id="historyBackBtn" class="btn-secondary" type="button">← Back</button>
           </div>
         </div>
