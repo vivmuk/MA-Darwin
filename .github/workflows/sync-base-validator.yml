@@ -1,5 +1,8 @@
 name: sync-base-validator
 on:
+  push:
+    paths:
+      - .github/workflows/sync-base-validator.yml
   workflow_dispatch:
 jobs:
   sync:
@@ -13,8 +16,13 @@ jobs:
           mkdir -p skills/sundai-powerpoint/scripts/office/validators
           curl -fsSL -o skills/sundai-powerpoint/scripts/office/validators/base.py \
             https://raw.githubusercontent.com/anthropics/skills/main/skills/pptx/scripts/office/validators/base.py
+          test -s skills/sundai-powerpoint/scripts/office/validators/base.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add skills/sundai-powerpoint/scripts/office/validators/base.py
-          git diff --cached --quiet || git commit -m "Add Anthropic pptx script: base.py via workflow"
-          git push
+          if git diff --cached --quiet; then
+            echo "base.py already up to date"
+          else
+            git commit -m "Add Anthropic pptx script: validators/base.py"
+            git push
+          fi
