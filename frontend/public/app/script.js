@@ -84,12 +84,12 @@ const DEFAULT_BRIEF =
   'Create an 8-slide medical affairs MSL deck to present to a physician.';
 
 const THEATER_STEPS = [
-  { id: 'skill', label: 'Load sundai-powerpoint', tools: 'SKILL.md · lineage', match: ['skill_loaded', 'skill_load'] },
-  { id: 'ocr', label: 'Extract publication (OCR + text)', tools: 'pymupdf · pdfplumber · OCR', match: ['ocr_started', 'ocr_page', 'ocr_complete', 'pages_parsed'] },
-  { id: 'ledger', label: 'Build the claim ledger', tools: 'Venice · page-level claims', match: ['claims_extracted', 'figures_extracted'] },
-  { id: 'plan', label: 'Plan the slide sequence', tools: 'Claude Opus 4.8 · SlidePlan', match: ['blueprint_slot_filled'] },
-  { id: 'write', label: 'Write the PowerPoint', tools: 'python-pptx · add_slide.py', match: ['rendering', 'library_call'] },
-  { id: 'gates', label: 'Quality gates + thumbnails', tools: 'LibreOffice · Gate 1 / Gate 2', match: ['gate1_complete', 'gate2_complete'] },
+  { id: 'skill', label: 'Load the PowerPoint skill', tools: 'SKILL.md · name · version · tools', match: ['skill_loaded', 'skill_load'] },
+  { id: 'ocr', label: 'Extract the publication', tools: 'pymupdf · Venice text-parser or digital layer', match: ['ocr_started', 'ocr_page', 'ocr_complete', 'pages_parsed'] },
+  { id: 'ledger', label: 'Build the claim ledger', tools: 'Venice or heuristic fallback', match: ['claims_extracted', 'figures_extracted'] },
+  { id: 'plan', label: 'Plan the slide sequence', tools: 'Venice planner or heuristic plan', match: ['blueprint_slot_filled'] },
+  { id: 'write', label: 'Write the PowerPoint', tools: 'python-pptx', match: ['rendering'] },
+  { id: 'gates', label: 'Quality gates + thumbnails', tools: 'soffice · Gate 1 / Gate 2', match: ['gate1_complete', 'gate2_complete'] },
   { id: 'judge', label: 'Judge visual fitness', tools: 'Gate 3 rubric', match: ['judging_slide'] },
   { id: 'done', label: 'Deck ready for review', tools: '', match: ['round_complete', 'awaiting_review', 'plateau'] },
 ];
@@ -118,7 +118,7 @@ function roundToDeck(runId, round) {
     id: runId,
     title: `Round ${round.n} · M2M deck`,
     slides: raw.map(mediaUrl),
-    pdfUrl: mediaUrl(round.pdf_url || round.preview_pdf_url || ''),
+    pdfUrl: mediaUrl(round.preview_pdf_url || round.pdf_url || ''),
     pptxUrl: `/api/runs/${runId}/export?round_n=${round.n}`,
     round_n: round.n,
     gate3: round.gate3,
@@ -139,18 +139,85 @@ function renderTheater(events, activeName) {
   }).join('');
 }
 
+const seenTools = new Set();
+
+function resetTheater() {
+  seenTools.clear();
+  const box = document.getElementById('theaterTools');
+  const list = document.getElementById('theaterToolList');
+  if (box) box.hidden = true;
+  if (list) list.innerHTML = '';
+}
+
+function libraryStep(ev) {
+  const tool = String(ev.tool || ev.message || '').toLowerCase();
+  if (tool.includes('pymupdf') || tool.includes('ocr') || tool.includes('text-parser')) return 'ocr_started';
+  if (tool.includes('planner')) return 'blueprint_slot_filled';
+  if (tool.includes('pptx')) return 'rendering';
+  if (tool.includes('soffice') || tool.includes('libreoffice')) return 'gate2_complete';
+  if (tool.includes('claim') || tool.includes('ledger') || tool.includes('extract')) return 'claims_extracted';
+  if (tool.includes('venice') || tool.includes('heuristic')) return 'blueprint_slot_filled';
+  return ev.event;
+}
+
+function liveLine(ev) {
+  const name = ev.skill_name || 'sundai-powerpoint';
+  const version = ev.skill_version ? ` ${ev.skill_version}` : '';
+  if (ev.event === 'skill_loaded') {
+    const tools = (ev.tools || []).join(' · ');
+    return tools
+      ? `Loaded ${name}${version} — ${tools}`
+      : ev.message || `Loaded ${name}${version}`.trim();
+  }
+  if (ev.event === 'ocr_page') {
+    const n = ev.slide || '?';
+    const total = ev.slide_total || ev.pages || '?';
+    if (/digital text only|VENICE_API_KEY/i.test(ev.message || '')) {
+      return `Reading page ${n}/${total} from the PDF text layer (Venice OCR on standby)`;
+    }
+    return ev.message || `OCR page ${n}/${total}`;
+  }
+  if (ev.event === 'ocr_started' && /VENICE_API_KEY|digital text/i.test(ev.message || '')) {
+    return ev.message.replace(/VENICE_API_KEY not set/i, 'Venice on standby — using the digital text layer');
+  }
+  if (ev.event === 'library_call') {
+    const tool = ev.tool || 'library';
+    const msg = ev.message || `Calling ${tool}`;
+    if (/heuristic/i.test(msg)) {
+      return `${msg} — continuing without Venice`;
+    }
+    return msg;
+  }
+  return ev.message || ev.event;
+}
+
 function paintTheater(ev) {
   const elapsed = document.getElementById('theaterElapsed');
   const tokens = document.getElementById('theaterTokens');
   const cost = document.getElementById('theaterCost');
   const live = document.getElementById('theaterLive');
+  const nameEl = document.getElementById('skillName');
+  const ver = document.getElementById('skillVersion');
   if (elapsed) elapsed.textContent = formatElapsed(ev.elapsed_ms);
   if (tokens) tokens.textContent = String(ev.token_count ?? 0);
   if (cost) cost.textContent = `$${(ev.cost_usd ?? 0).toFixed(2)}`;
-  if (live) live.textContent = ev.message || ev.event;
-  if (ev.skill_version) {
-    const ver = document.getElementById('skillVersion');
-    if (ver) ver.textContent = ev.skill_version;
+  if (live) live.textContent = liveLine(ev);
+  if (ev.skill_name && nameEl) nameEl.textContent = ev.skill_name;
+  if (ev.skill_version && ver) ver.textContent = ev.skill_version;
+  const tools = [...(ev.tools || []), ev.tool].filter(Boolean);
+  if (tools.length) {
+    const box = document.getElementById('theaterTools');
+    const list = document.getElementById('theaterToolList');
+    if (box && list) {
+      box.hidden = false;
+      tools.forEach((tool) => {
+        if (seenTools.has(tool)) return;
+        seenTools.add(tool);
+        const li = document.createElement('li');
+        li.textContent = tool;
+        list.appendChild(li);
+      });
+    }
   }
 }
 
@@ -184,6 +251,7 @@ function subscribeRun(runId, onEvent, onDone, onError) {
 async function waitForRound(runId, roundN) {
   return new Promise((resolve, reject) => {
     const events = [];
+    resetTheater();
     renderTheater(events, 'skill_loaded');
     paintTheater({ event: 'skill_loaded', message: 'Loading sundai-powerpoint…', elapsed_ms: 0, token_count: 0, cost_usd: 0 });
     subscribeRun(
@@ -191,7 +259,7 @@ async function waitForRound(runId, roundN) {
       (ev) => {
         events.push(ev);
         paintTheater(ev);
-        renderTheater(events, ev.event);
+        renderTheater(events, ev.event === 'library_call' ? libraryStep(ev) : ev.event);
       },
       async (ev) => {
         try {
@@ -287,6 +355,7 @@ convertBtn.addEventListener('click', async () => {
 
   showView('loading');
   loadingDetail.textContent = 'Uploading the PDF and starting the skill…';
+  resetTheater();
   renderTheater([], 'skill_loaded');
 
   const formData = new FormData();
