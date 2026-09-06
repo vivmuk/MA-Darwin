@@ -83,7 +83,9 @@ body {
 }
 
 .landing-poster {
+  height: 100svh;
   min-height: 100svh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background:
@@ -96,27 +98,30 @@ body {
 
 .landing-poster__stage {
   flex: 1;
-  width: min(100%, 1680px);
-  margin: 0 auto;
-  padding: 12px 12px 8px;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px 0;
 }
 
 .landing-poster__image {
   display: block;
   width: 100%;
-  height: auto;
-  background: #f9f8f3;
-  border: 2px solid rgba(0, 109, 119, 0.28);
-  box-shadow: 6px 8px 0 #d6ded3;
+  height: calc(100svh - 7rem);
+  max-height: calc(100svh - 7rem);
+  object-fit: contain;
+  object-position: center;
+  background: transparent;
 }
 
 .landing-poster__bar {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   z-index: 20;
   display: flex;
   justify-content: center;
-  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
   border-top: 3px solid #006d77;
   background: rgba(247, 244, 234, 0.96);
 }
