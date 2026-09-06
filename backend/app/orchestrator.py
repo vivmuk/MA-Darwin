@@ -782,6 +782,24 @@ def _auto_loop(run_id: str, rnd: Round) -> Round:
     return rnd
 
 
+def _release_for_review(run_id: str, rnd: Round) -> Round:
+    """Mark a finished human-in-the-loop round reviewable. Never leave it ``running``."""
+    run = get_store().get_run(run_id)
+    decision = check_stopping_conditions(run)
+    _apply_status(run, decision)
+    persist_run(run)
+    if decision.reason == StoppingReason.PLATEAU:
+        emit(run_id, ProgressEventType.PLATEAU, decision.message, round_n=rnd.n)
+    elif run.status != RunStatus.FAILED:
+        emit(
+            run_id,
+            ProgressEventType.AWAITING_REVIEW,
+            decision.message or "Awaiting human review",
+            round_n=rnd.n,
+        )
+    return rnd
+
+
 def start_run(run_id: str, *, auto: bool = True) -> Round:
     """Kick off round 1 for a run (API ``POST /runs/{id}/start``)."""
     run = get_store().get_run(run_id)
@@ -790,23 +808,24 @@ def start_run(run_id: str, *, auto: bool = True) -> Round:
     if run.status not in (RunStatus.CREATED, RunStatus.RUNNING):
         raise RuntimeError(f"cannot start run in status {run.status.value}")
     rnd = run_round(run_id, round_n=1)
-    return _auto_loop(run_id, rnd) if auto else rnd
+    return _auto_loop(run_id, rnd) if auto else _release_for_review(run_id, rnd)
 
 
-def reiterate(run_id: str, *, auto: bool = True) -> Round:
+def reiterate(run_id: str, *, auto: bool = True, force: bool = False) -> Round:
     """Start the next round after human review (API ``POST /runs/{id}/reiterate``)."""
     run = get_store().get_run(run_id)
     if run.status not in (RunStatus.AWAITING_REVIEW, RunStatus.PLATEAU):
         raise RuntimeError(f"cannot reiterate from status {run.status.value}")
-    decision = check_stopping_conditions(run)
-    if decision.halt and decision.reason in {
-        StoppingReason.MAX_ROUNDS,
-        StoppingReason.BUDGET,
-        StoppingReason.SUCCESS,
-    }:
-        raise RuntimeError(decision.message)
+    if not force:
+        decision = check_stopping_conditions(run)
+        if decision.halt and decision.reason in {
+            StoppingReason.MAX_ROUNDS,
+            StoppingReason.BUDGET,
+            StoppingReason.SUCCESS,
+        }:
+            raise RuntimeError(decision.message)
     rnd = run_round(run_id)
-    return _auto_loop(run_id, rnd) if auto else rnd
+    return _auto_loop(run_id, rnd) if auto else _release_for_review(run_id, rnd)
 
 
 def export_blockers(run: Run, *, round_n: int) -> str:

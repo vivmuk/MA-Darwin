@@ -38,7 +38,7 @@ export function ZoneReview({
   onReiterate: () => void;
 }) {
   const blockers = exportBlockers(current, current?.slide_images.length ?? 0);
-  const exportDisabled = blockers.length > 0;
+  const isDraft = blockers.length > 0;
 
   return (
     <section className="zone p-4">
@@ -114,18 +114,15 @@ export function ZoneReview({
         </button>
         <div className="relative">
           <a
-            href={exportDisabled ? undefined : exportHref}
-            aria-disabled={exportDisabled}
-            className={`inline-block rounded-sm border border-ink px-6 py-3 font-display text-lg ${
-              exportDisabled ? "pointer-events-none cursor-not-allowed opacity-40" : ""
-            }`}
-            title={exportDisabled ? blockers.join(" ") : "Download export bundle"}
+            href={exportHref}
+            className="inline-block rounded-sm border border-ink px-6 py-3 font-display text-lg"
+            title={isDraft ? `Draft download — ${blockers.join(" ")}` : "Download PowerPoint"}
           >
-            Export
+            {isDraft ? "Download draft .pptx" : "Download .pptx"}
           </a>
-          {exportDisabled && (
+          {isDraft && (
             <p className="mt-1 max-w-md text-xs text-flag" title={blockers.join(" ")}>
-              {blockers.join(" ")}
+              Draft download — {blockers.join(" ")}
             </p>
           )}
         </div>

@@ -30,6 +30,24 @@ def _round(run: Run, round_n: int) -> Round:
     return rnd
 
 
+def find_round_pptx(run: Run, *, round_n: int, store: RunStore | None = None) -> Path | None:
+    """Return the generated deck.pptx for a round, even when gates have not passed."""
+    try:
+        rnd = _round(run, round_n)
+    except KeyError:
+        return None
+    run_store = store or RunStore()
+    rdir = run_store.round_dir(run.id, round_n)
+    candidates: list[Path] = []
+    if rnd.deck_path:
+        candidates.append(Path(rnd.deck_path))
+    candidates.append(rdir / "deck.pptx")
+    for path in candidates:
+        if path.is_file():
+            return path
+    return None
+
+
 def _slide_count(rnd: Round, slide_map: SlideMap | None = None) -> int:
     if rnd.slide_images:
         return len(rnd.slide_images)

@@ -161,7 +161,9 @@ def _sanitize_plan(
         )
     if not slides:
         return _heuristic_plan(blueprint, ledger, Brief(), skill_version)
-    return SlidePlan(blueprint_id=blueprint.id, skill_version=skill_version, slides=slides)
+    return _with_reference_citations(
+        SlidePlan(blueprint_id=blueprint.id, skill_version=skill_version, slides=slides)
+    )
 
 
 def _heuristic_plan(
@@ -205,7 +207,30 @@ def _heuristic_plan(
                 chart=chart,
             )
         )
-    return SlidePlan(blueprint_id=blueprint.id, skill_version=skill_version, slides=slides)
+    return _with_reference_citations(
+        SlidePlan(blueprint_id=blueprint.id, skill_version=skill_version, slides=slides)
+    )
+
+
+def _with_reference_citations(plan: SlidePlan) -> SlidePlan:
+    """References slide lists every claim actually used on content slides."""
+    cited: list[str] = []
+    seen: set[str] = set()
+    for slide in plan.slides:
+        if slide.role == "references":
+            continue
+        for cid in slide.claim_ids:
+            if cid in seen:
+                continue
+            seen.add(cid)
+            cited.append(cid)
+    if not cited:
+        return plan
+    slides = [
+        slide.model_copy(update={"claim_ids": cited}) if slide.role == "references" else slide
+        for slide in plan.slides
+    ]
+    return plan.model_copy(update={"slides": slides})
 
 
 def _headline_for(role: str, claim_ids: list[str], ledger: ClaimLedger) -> str:

@@ -103,6 +103,9 @@ def _endpoint_labels() -> dict[EvidenceClass, str]:
 
 
 def _claim_ids(planned: SlidePlanSlide, claims: dict[str, ClaimLedgerEntry], max_claims: int) -> list[str]:
+    if planned.role == "references":
+        ids = [cid for cid in planned.claim_ids if cid in claims]
+        return ids or list(planned.claim_ids)
     ids = [cid for cid in planned.claim_ids if cid in claims][:max_claims]
     if not ids:
         ids = list(planned.claim_ids[:max_claims])
@@ -133,27 +136,41 @@ def _label(text: str, claim_ids: list[str], claims: dict[str, ClaimLedgerEntry],
     return out
 
 
+def _reference_bullets(
+    claim_ids: list[str],
+    claims: dict[str, ClaimLedgerEntry],
+) -> list[tuple[str, list[str]]]:
+    """Group citations by page so every cited id can appear on the references slide."""
+    by_page: dict[int, list[str]] = {}
+    for cid in claim_ids:
+        entry = claims.get(cid)
+        page = entry.page if entry is not None else 0
+        by_page.setdefault(page, []).append(cid)
+    out: list[tuple[str, list[str]]] = []
+    for page in sorted(by_page):
+        ids = by_page[page]
+        sample = claims.get(ids[0])
+        snippet = f" — {sample.text[:90]}" if sample is not None else ""
+        out.append((f"p.{page}: {'; '.join(ids)}{snippet}", ids))
+    return out
+
+
 def _bullets(
     planned: SlidePlanSlide,
     claim_ids: list[str],
     claims: dict[str, ClaimLedgerEntry],
     labels: dict[EvidenceClass, str],
 ) -> list[tuple[str, list[str]]]:
-    limit = 20 if planned.role == "references" else _MAX_BULLETS
+    if planned.role == "references":
+        return _reference_bullets(claim_ids, claims)
     out: list[tuple[str, list[str]]] = []
     for cid in claim_ids:
         entry = claims.get(cid)
-        if planned.role == "references":
-            if entry is None:
-                out.append((cid, [cid]))
-            else:
-                out.append((f"{cid} — {entry.text}", [cid]))
-            continue
         text = entry.text if entry is not None else cid
         if entry is not None:
             text = _label(text, [cid], claims, labels)
         out.append((text, [cid]))
-    return out[:limit]
+    return out[:_MAX_BULLETS]
 
 
 def _compose_slide(
@@ -187,7 +204,7 @@ def _compose_slide(
             color=_NAVY,
             alignment=TextAlign.LEFT,
             text=headline,
-            claim_ids=list(claim_ids),
+            claim_ids=list(claim_ids[:1]),
         )
     )
 
@@ -206,7 +223,7 @@ def _compose_slide(
                     w=4.7,
                     h=4.4,
                     image_path=str(Path(asset.path)),
-                    claim_ids=list(claim_ids),
+                    claim_ids=list(claim_ids[:1]),
                 )
             )
             cap = fig.caption or asset.caption
@@ -224,7 +241,7 @@ def _compose_slide(
                         font_weight=FontWeight.NORMAL,
                         color=_BODY,
                         text=cap,
-                        claim_ids=list(claim_ids),
+                        claim_ids=list(claim_ids[:1]),
                     )
                 )
             body_width = 7.2

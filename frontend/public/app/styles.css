@@ -416,6 +416,12 @@ h1 {
   border-color: var(--primary);
 }
 
+.download-note {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: #8C2F39;
+}
+
 .result-body {
   display: grid;
   grid-template-columns: 1fr 320px;

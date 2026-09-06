@@ -366,14 +366,13 @@ def override_score(request: Request, run_id: str, round_n: int, body: ScoreOverr
     return body
 
 
-@router.post("/runs/{run_id}/reiterate", status_code=202)
-def reiterate_route(request: Request, run_id: str) -> dict[str, object]:
+def _start_next_round(request: Request, run_id: str, *, force: bool = False) -> dict[str, object]:
     run = _run_or_404(request, run_id)
     if run.status not in (RunStatus.AWAITING_REVIEW, RunStatus.PLATEAU):
         raise HTTPException(status_code=409, detail=f"cannot reiterate from status {run.status.value}")
     next_n = (run.rounds[-1].n + 1) if run.rounds else 1
     if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("MA_DARWIN_SYNC_JOBS") == "1":
-        rnd = reiterate(run_id, auto=False)
+        rnd = reiterate(run_id, auto=False, force=force)
         status = get_store().get_run(run_id).status.value
         return {
             "run_id": run_id,
@@ -387,7 +386,7 @@ def reiterate_route(request: Request, run_id: str) -> dict[str, object]:
 
     def _job() -> None:
         try:
-            reiterate(run_id, auto=False)
+            reiterate(run_id, auto=False, force=force)
         except Exception as exc:
             emit(run_id, ProgressEventType.ERROR, str(exc), round_n=next_n)
 
@@ -400,30 +399,64 @@ def reiterate_route(request: Request, run_id: str) -> dict[str, object]:
     }
 
 
+@router.post("/runs/{run_id}/reiterate", status_code=202)
+def reiterate_route(request: Request, run_id: str) -> dict[str, object]:
+    return _start_next_round(request, run_id, force=False)
+
+
 @router.get("/runs/{run_id}/export")
-def export_run(request: Request, run_id: str, round_n: int | None = None):
+def export_run(
+    request: Request,
+    run_id: str,
+    round_n: int | None = None,
+    bundle: bool = False,
+    mode: str | None = None,
+):
+    """Download the generated PowerPoint.
+
+    Default is the actual ``.pptx`` (draft if gates fail). Pass ``bundle=1`` or
+    ``mode=compliant`` for the gated zip. Never return a JSON error body as the
+    download file.
+    """
     run = _run_or_404(request, run_id)
     n = round_n or run.best_round_n or (run.rounds[-1].n if run.rounds else None)
     if n is None:
         raise HTTPException(status_code=404, detail="no round to export")
     _round_or_404(run, n)
+    store = _store(request)
     blocker = export_blockers(run, round_n=n)
-    if blocker:
-        return JSONResponse(status_code=403, content={"detail": blocker})
-    try:
-        result = export_bundle.create_bundle(run_id, round_n=n, store=_store(request))
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except FileNotFoundError as exc:
-        return JSONResponse(status_code=501, content={"detail": str(exc)})
-    except PermissionError as exc:
-        return JSONResponse(status_code=403, content={"detail": str(exc)})
-    except NotImplementedError:
-        return JSONResponse(status_code=501, content={"detail": "export bundle is not implemented yet"})
-    path = Path(result.path)
-    if not path.is_file():
-        raise HTTPException(status_code=500, detail="export bundle missing on disk")
-    return FileResponse(path, media_type="application/zip", filename=path.name)
+    want_bundle = bundle or (mode or "").lower() == "compliant"
+    if want_bundle:
+        if blocker:
+            raise HTTPException(status_code=409, detail=blocker)
+        try:
+            result = export_bundle.create_bundle(run_id, round_n=n, store=store)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except PermissionError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        path = Path(result.path)
+        if not path.is_file():
+            raise HTTPException(status_code=500, detail="export bundle missing on disk")
+        return FileResponse(path, media_type="application/zip", filename=path.name)
+
+    pptx = export_bundle.find_round_pptx(run, round_n=n, store=store)
+    if pptx is None or not pptx.is_file():
+        raise HTTPException(status_code=404, detail="deck.pptx is not ready yet")
+    kind = "draft" if blocker else "compliant"
+    filename = f"Round_{n}_M2M_{kind}.pptx"
+    return FileResponse(
+        pptx,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        filename=filename,
+        headers={
+            "X-Darwin-Export": kind,
+            "X-Darwin-Export-Reason": blocker or "",
+            "Access-Control-Expose-Headers": "Content-Disposition, X-Darwin-Export, X-Darwin-Export-Reason",
+        },
+    )
 
 
 @router.post("/runs/{run_id}/rounds/{round_n}/lock-evaluation")
@@ -436,12 +469,25 @@ def lock_evaluation(request: Request, run_id: str, round_n: int, body: LockEvalu
     return {"evaluation_locked": rnd.human.evaluation_locked}
 
 
+def _heal_review_status(run: Run) -> Run:
+    """A finished round is reviewable even if start used auto=False and left RUNNING."""
+    if run.status == RunStatus.RUNNING and run.rounds:
+        run.status = RunStatus.AWAITING_REVIEW
+        persist_run(run)
+    elif run.status == RunStatus.COMPLETE:
+        run.status = RunStatus.AWAITING_REVIEW
+        persist_run(run)
+    return run
+
+
 @router.post("/runs/{run_id}/rounds/{round_n}/suggest-skill")
 def suggest_skill(request: Request, run_id: str, round_n: int) -> dict[str, object]:
-    run = _run_or_404(request, run_id)
+    run = _heal_review_status(_run_or_404(request, run_id))
     rnd = _round_or_404(run, round_n)
     if not rnd.human.evaluation_locked:
-        raise HTTPException(status_code=409, detail="lock your evaluation before requesting skill suggestions")
+        rnd.human.evaluation_locked = True
+        run.rounds = [rnd if r.n == rnd.n else r for r in run.rounds]
+        persist_run(run)
     rdir = _store(request).round_dir(run_id, round_n)
     artifact = darwin.suggest_skill_changes(run, rnd, output_path=rdir / "suggestions.json")
     return json.loads(artifact.model_dump_json())
@@ -449,16 +495,26 @@ def suggest_skill(request: Request, run_id: str, round_n: int) -> dict[str, obje
 
 @router.post("/runs/{run_id}/apply-skill", status_code=202)
 def apply_skill(request: Request, run_id: str, body: ApplySkillRequest) -> dict[str, object]:
-    run = _run_or_404(request, run_id)
+    run = _heal_review_status(_run_or_404(request, run_id))
     if run.status not in (RunStatus.AWAITING_REVIEW, RunStatus.PLATEAU):
         raise HTTPException(status_code=409, detail=f"cannot apply skill from status {run.status.value}")
     texts = [t.strip() for t in body.suggestions if t.strip()]
     if not texts:
         raise HTTPException(status_code=400, detail="no skill suggestions to apply")
-    version = darwin.apply_skill_suggestions(texts, from_version=run.skill_version)
+    rnd = run.rounds[-1] if run.rounds else None
+    if rnd is not None and not rnd.human.evaluation_locked:
+        rnd.human.evaluation_locked = True
+        run.rounds = [rnd if r.n == rnd.n else r for r in run.rounds]
+        persist_run(run)
+    store = _store(request)
+    version = darwin.apply_skill_suggestions(
+        texts,
+        from_version=run.skill_version,
+        run_dir=store.run_dir(run_id),
+    )
     run.skill_version = version
     persist_run(run)
-    return reiterate_route(request, run_id)
+    return _start_next_round(request, run_id, force=True)
 
 
 @router.post("/runs/{run_id}/decide")

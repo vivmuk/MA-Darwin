@@ -18,6 +18,7 @@ from app.models.slide import SlideMap, SlideMapEntry
 from app.paths import BLUEPRINTS_DIR, CONFIG_DIR
 
 _CLAIM_ID_RE = re.compile(r"\bC-\d+\b", re.I)
+_PAGE_CITE_RE = re.compile(r"\bp\.\s*\d+\b", re.I)
 _NUM_RE = re.compile(
     r"(?<![A-Za-z_])(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+|\d+)(?P<unit>\s*%|\s*mg(?:/d[Ll])?|\s*g\b|\s*mmHg)?"
 )
@@ -256,16 +257,15 @@ def check_population_extrapolation(slide_map: SlideMap, ledger: ClaimLedger) -> 
     )
 
 
-def check_references_complete(slide_map: SlideMap, ledger: ClaimLedger) -> GateCheckResult:
-    """Reference slide present; every cited claim listed."""
+def check_references_complete(
+    slide_map: SlideMap,
+    ledger: ClaimLedger,
+    blueprint_roles: list[str] | None = None,
+) -> GateCheckResult:
+    """Reference slide present; every claim cited on content slides is listed."""
     del ledger
     by_slide = _entries_by_slide(slide_map)
-    cited: set[str] = set()
-    for entries in by_slide.values():
-        for e in entries:
-            cited.update(e.claim_ids)
-
-    roles = _roles_for_map(slide_map)
+    roles = list(blueprint_roles) if blueprint_roles is not None else _roles_for_map(slide_map)
     ref_slides = [i + 1 for i, role in enumerate(roles) if role == "references"]
     if not ref_slides:
         ref_slides = [
@@ -273,8 +273,16 @@ def check_references_complete(slide_map: SlideMap, ledger: ClaimLedger) -> GateC
             for slide, entries in by_slide.items()
             if any("reference" in e.text.lower() for e in entries)
         ]
+
+    cited: set[str] = set()
+    for slide, entries in by_slide.items():
+        role = roles[slide - 1] if 0 <= slide - 1 < len(roles) else ""
+        if role == "references" or slide in ref_slides:
+            continue
+        for e in entries:
+            cited.update(e.claim_ids)
+
     if not ref_slides and cited:
-        # Last slide that contains every cited id.
         ref_slides = [s for s, ents in by_slide.items() if cited <= {c for e in ents for c in e.claim_ids}]
         if ref_slides:
             ref_slides = [max(ref_slides)]
@@ -363,7 +371,7 @@ def run_gate1(
         check_comparative_claims(slide_map, ledger),
         check_promotional_language(slide_map, blocklist),
         check_population_extrapolation(slide_map, ledger),
-        check_references_complete(slide_map, ledger),
+        check_references_complete(slide_map, ledger, roles),
         check_synthesized_flags(slide_map, ledger),
     ]
     return Gate1Result(gate="gate1", passed=all(c.passed for c in checks), checks=checks)
@@ -434,6 +442,7 @@ def _iter_visible_text(prs) -> Iterable[tuple[int, str, str]]:
 
 def _extract_numerals(text: str) -> list[tuple[str, float, str | None]]:
     masked = _CLAIM_ID_RE.sub(" ", text)
+    masked = _PAGE_CITE_RE.sub(" ", masked)
     found: list[tuple[str, float, str | None]] = []
     for match in _NUM_RE.finditer(masked):
         raw_num = match.group("num")

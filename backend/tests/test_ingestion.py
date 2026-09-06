@@ -76,6 +76,21 @@ def test_fixture_ledger_entries_have_claim_type_and_evidence_class() -> None:
         assert entry.evidence_class.value
 
 
+def test_heuristic_ledger_caps_claim_explosion() -> None:
+    from app.ingestion.ledger import MAX_LEDGER_CLAIMS
+
+    pages = [
+        PageText(
+            page=1,
+            text=" ".join(f"This is a clinical outcome sentence number {i} with effect size." for i in range(80)),
+        )
+    ]
+    index = build_numbers_index(pages, paper_id="boom")
+    ledger = extract_claims(pages, index, paper_id="boom", llm_fn=lambda *_: [])
+    assert len(ledger.entries) <= MAX_LEDGER_CLAIMS
+    assert ledger.entries
+
+
 def test_extracted_ledger_entries_have_required_enums(tmp_path: Path) -> None:
     """Built ledger: every entry has claim_type and evidence_class set."""
     paper_id, pages, _expected = PAPER_SPECS[0]

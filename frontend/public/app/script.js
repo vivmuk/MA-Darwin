@@ -396,7 +396,12 @@ function loadDeck(data) {
   if (data.round_n) currentRoundN = data.round_n;
   lastRound = data.gate3 ? { gate3: data.gate3, n: data.round_n } : lastRound;
   deckTitle.textContent = data.title || 'Deck preview';
-  downloadBtn.href = data.pptxUrl || '#';
+  downloadBtn.dataset.url = data.pptxUrl || '';
+  const downloadNote = document.getElementById('downloadNote');
+  if (downloadNote) {
+    downloadNote.hidden = true;
+    downloadNote.textContent = '';
+  }
   showPdfOrSlides(data.pdfUrl, document.getElementById('deckPdf'), slideImage, document.querySelector('.slide-stage'), document.getElementById('slideCarousel'));
 
   renderThumbs();
@@ -419,6 +424,76 @@ function showPdfOrSlides(pdfUrl, iframe, img, stage, carousel) {
     if (carousel) carousel.classList.remove('has-pdf');
   }
 }
+
+function filenameFromDisposition(header, fallback) {
+  if (!header) return fallback;
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (star) return decodeURIComponent(star[1]);
+  const quoted = /filename="([^"]+)"/i.exec(header);
+  if (quoted) return quoted[1];
+  const plain = /filename=([^;]+)/i.exec(header);
+  return plain ? plain[1].trim() : fallback;
+}
+
+downloadBtn.addEventListener('click', async (e) => {
+  e.preventDefault();
+  const url = downloadBtn.dataset.url;
+  const note = document.getElementById('downloadNote');
+  if (!url) {
+    if (note) {
+      note.hidden = false;
+      note.textContent = 'No generated deck is ready to download yet.';
+    }
+    return;
+  }
+  try {
+    const res = await fetch(url);
+    const type = (res.headers.get('content-type') || '').toLowerCase();
+    if (!res.ok) {
+      let detail = `Download failed (${res.status})`;
+      if (type.includes('json')) {
+        const body = await res.json().catch(() => ({}));
+        if (body.detail) detail = body.detail;
+      }
+      throw new Error(detail);
+    }
+    if (type.includes('json')) {
+      throw new Error('Server returned JSON instead of a PowerPoint. Try again or start over.');
+    }
+    const blob = await res.blob();
+    const name = filenameFromDisposition(
+      res.headers.get('content-disposition'),
+      `Round_${currentRoundN || 1}_M2M.pptx`,
+    );
+    if (/\.json$/i.test(name)) {
+      throw new Error('Refusing to save export.json — the deck file was not returned.');
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = name.endsWith('.pptx') ? name : `${name}.pptx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+    if (note) {
+      const reason = res.headers.get('x-darwin-export-reason') || '';
+      const kind = res.headers.get('x-darwin-export') || '';
+      if (kind === 'draft' && reason) {
+        note.hidden = false;
+        note.textContent = `Draft download — ${reason}`;
+      } else {
+        note.hidden = true;
+        note.textContent = '';
+      }
+    }
+  } catch (err) {
+    if (note) {
+      note.hidden = false;
+      note.textContent = err.message;
+    }
+  }
+});
 
 function restoreLastDeck() {
   const data = readJson(LAST_DECK_KEY);
@@ -948,6 +1023,11 @@ applyChangesBtn.addEventListener('click', async () => {
   renderRegenSteps(0);
 
   try {
+    await fetch(`/api/runs/${currentRunId}/rounds/${currentRoundN}/lock-evaluation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locked: true }),
+    });
     const res = await fetch(`/api/runs/${currentRunId}/apply-skill`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -955,7 +1035,10 @@ applyChangesBtn.addEventListener('click', async () => {
         suggestions: roundSuggestions.map((s) => s.title || s.text || s.detail).filter(Boolean),
       }),
     });
-    if (!res.ok) throw new Error(`Apply failed (${res.status})`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Apply failed (${res.status})`);
+    }
     const started = await res.json();
     currentRoundN = started.round_n || currentRoundN + 1;
     regenTitle.textContent = 'Regenerating deck…';

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from app.generation.skill_lineage import apply_mutations, load_skill_text, read_active
+from app.generation.skill_lineage import load_skill_text, propose_skill_version, read_active
 from app.llm_env import chat_text, llm_configured
 from app.models.run import Round, Run
 from app.models.slide import HumanComment
@@ -66,8 +66,14 @@ def suggest_skill_changes(
     return artifact
 
 
-def apply_skill_suggestions(texts: list[str], *, from_version: str | None = None) -> str:
-    return apply_mutations(texts, from_version=from_version)
+def apply_skill_suggestions(
+    texts: list[str],
+    *,
+    from_version: str | None = None,
+    run_dir: Path | str | None = None,
+) -> str:
+    """Record a proposed skill version. Does not overwrite repo ``skills/v1``."""
+    return propose_skill_version(texts, from_version=from_version, run_dir=run_dir)
 
 
 def _parse(raw: str) -> list[SkillSuggestion]:

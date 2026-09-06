@@ -54,12 +54,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ path: strin
     const roundN = Number(req.nextUrl.searchParams.get("round_n") || stored.run.best_round_n || 1);
     const round = stored.rounds.get(roundN);
     const blockers = exportBlockers(round ?? null, round?.slide_images.length ?? 0);
-    if (blockers.length) return json({ detail: blockers.join(" ") }, 403);
-    return new NextResponse("export-not-assembled-in-fixture-mode", {
+    const kind = blockers.length ? "draft" : "compliant";
+    return new NextResponse("PK draft-pptx", {
       status: 200,
       headers: {
-        "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${runId}-round-${roundN}.zip"`,
+        "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "Content-Disposition": `attachment; filename="Round_${roundN}_M2M_${kind}.pptx"`,
+        "X-Darwin-Export": kind,
+        "X-Darwin-Export-Reason": blockers.join(" "),
       },
     });
   }

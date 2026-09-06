@@ -100,11 +100,14 @@ def resolve_skill_dir(version: str | None = None) -> Path:
 
 
 def resolve_darwin_dir(version: str | None = None) -> Path | None:
-    """``skills/v1`` (or ``skills/{version}``) Darwin generation skill."""
+    """``skills/v1`` (or ``skills/{version}`` / a recorded proposal) Darwin skill."""
     name = version or read_active()
-    candidate = SKILLS_DIR / name
-    if candidate.is_dir() and (candidate / "SKILL.md").is_file():
-        return candidate
+    registered = _PROPOSAL_PATHS.get(name)
+    if registered is not None and registered.is_dir() and (registered / "SKILL.md").is_file():
+        return registered
+    for candidate in (SKILLS_DIR / name, PROPOSALS_DIR / name):
+        if candidate.is_dir() and (candidate / "SKILL.md").is_file():
+            return candidate
     fallback = SKILLS_DIR / "v1"
     if fallback.is_dir() and (fallback / "SKILL.md").is_file():
         return fallback
@@ -178,6 +181,10 @@ def load_skill_text(version: str | None = None) -> str:
     return load_skill_bundle(version).text
 
 
+_PROPOSAL_PATHS: dict[str, Path] = {}
+PROPOSALS_DIR = SKILLS_DIR / "proposals"
+
+
 def list_versions() -> list[str]:
     found: set[str] = set()
     if LINEAGE_DIR.is_dir():
@@ -186,8 +193,19 @@ def list_versions() -> list[str]:
             for p in LINEAGE_DIR.iterdir()
             if p.is_dir() and re.fullmatch(r"v\d+", p.name) and (p / "SKILL.md").is_file()
         )
-    if (SKILLS_DIR / "v1" / "SKILL.md").is_file():
-        found.add("v1")
+    if SKILLS_DIR.is_dir():
+        found.update(
+            p.name
+            for p in SKILLS_DIR.iterdir()
+            if p.is_dir() and re.fullmatch(r"v\d+", p.name) and (p / "SKILL.md").is_file()
+        )
+    if PROPOSALS_DIR.is_dir():
+        found.update(
+            p.name
+            for p in PROPOSALS_DIR.iterdir()
+            if p.is_dir() and re.fullmatch(r"v\d+", p.name) and (p / "SKILL.md").is_file()
+        )
+    found.update(_PROPOSAL_PATHS)
     return sorted(found) or ["v1"]
 
 
@@ -196,33 +214,74 @@ def next_version() -> str:
     return f"v{(max(nums) if nums else 0) + 1}"
 
 
+def register_proposal(version: str, path: Path | str) -> None:
+    _PROPOSAL_PATHS[version] = Path(path)
+
+
 def apply_mutations(suggestions: list[str], *, from_version: str | None = None) -> str:
-    """Copy the active skill, append Darwin mutations, make the copy current."""
+    """Record a proposed skill version. Never overwrite ``skills/v1`` or ACTIVE."""
+    return propose_skill_version(suggestions, from_version=from_version)
+
+
+def propose_skill_version(
+    suggestions: list[str],
+    *,
+    from_version: str | None = None,
+    run_dir: Path | str | None = None,
+) -> str:
+    """Copy the Darwin skill into a new versioned proposal (run-local + proposals/).
+
+    The live ``skills/v1`` tree and the PowerPoint ``ACTIVE`` pointer stay untouched.
+    Railway must not git-push these files; a human approves a committed ``skills/vN``.
+    """
     source_name = from_version or read_active()
-    source = resolve_skill_dir(source_name)
+    source = resolve_darwin_dir(source_name) or (SKILLS_DIR / "v1")
     dest_name = next_version()
-    dest = LINEAGE_DIR / dest_name
+    targets: list[Path] = []
+    if run_dir is not None:
+        targets.append(Path(run_dir) / "skill_proposals" / dest_name)
+    try:
+        targets.append(PROPOSALS_DIR / dest_name)
+    except Exception:
+        pass
+    written: Path | None = None
+    for dest in targets:
+        try:
+            _write_proposal_copy(source, dest, dest_name, suggestions)
+            written = dest
+        except OSError:
+            continue
+    if written is None:
+        raise RuntimeError("could not write skill proposal (filesystem not writable)")
+    register_proposal(dest_name, written)
+    return dest_name
+
+
+def _write_proposal_copy(source: Path, dest: Path, dest_name: str, suggestions: list[str]) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
         shutil.rmtree(dest)
     dest.mkdir(parents=True, exist_ok=True)
-    skill_md = source / "SKILL.md"
-    if skill_md.is_file():
-        shutil.copy2(skill_md, dest / "SKILL.md")
-    rules_src = source / "house-rules"
-    rules_dest = dest / "house-rules"
-    if rules_src.is_dir():
-        shutil.copytree(rules_src, rules_dest)
-    else:
-        rules_dest.mkdir(parents=True, exist_ok=True)
-    mutations = rules_dest / "darwin-mutations.md"
+    if source.is_dir():
+        for name in ("SKILL.md", "house_rules.md", "style_rules.md", "CHANGELOG.md"):
+            src = source / name
+            if src.is_file():
+                shutil.copy2(src, dest / name)
+        rules_src = source / "house-rules"
+        if rules_src.is_dir():
+            shutil.copytree(rules_src, dest / "house-rules")
+    if not (dest / "SKILL.md").is_file():
+        (dest / "SKILL.md").write_text(f"# MA-Darwin skill {dest_name}\n", encoding="utf-8")
+    mutations = dest / "darwin-mutations.md"
     existing = mutations.read_text(encoding="utf-8") if mutations.is_file() else "# Darwin mutations\n"
     block = "\n".join(f"- {item.strip()}" for item in suggestions if item.strip())
-    mutations.write_text(
-        existing.rstrip() + f"\n\n## {dest_name}\n\n{block}\n",
+    mutations.write_text(existing.rstrip() + f"\n\n## {dest_name}\n\n{block}\n", encoding="utf-8")
+    house = dest / "house_rules.md"
+    house.write_text(
+        (house.read_text(encoding="utf-8") if house.is_file() else "# House rules\n")
+        + f"\n\n## Proposed in {dest_name}\n\n{block}\n",
         encoding="utf-8",
     )
-    _write_active(dest_name)
-    return dest_name
 
 
 def scripts_dir() -> Path:

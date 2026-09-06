@@ -154,3 +154,26 @@ def test_promotional_language_fails_on_injected_word() -> None:
     assert check.passed is False
     assert check.name == "promotional_language"
     assert any("proven" in loc.detail.lower() for loc in check.locations)
+
+
+def test_references_complete_only_requires_content_slide_claims() -> None:
+    from app.gates.gate1_content import check_references_complete
+
+    ledger = _ledger()
+    slide_map = SlideMap(
+        deck_path="round_1/deck.pptx",
+        entries=[
+            SlideMapEntry(slide=1, element_id="s1_headline", text="Title", claim_ids=["C-001"]),
+            SlideMapEntry(slide=2, element_id="s2_body_0", text="Need", claim_ids=["C-014"]),
+            SlideMapEntry(
+                slide=9,
+                element_id="s9_body_0",
+                text="p.2: C-001; C-014",
+                claim_ids=["C-001", "C-014"],
+            ),
+        ],
+    )
+    roles = _roles()
+    check = check_references_complete(slide_map, ledger, roles)
+    assert check.passed is True
+    assert check.name == "references_complete"

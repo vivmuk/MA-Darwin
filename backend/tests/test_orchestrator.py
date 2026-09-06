@@ -178,6 +178,91 @@ def test_run_round_short_circuits_before_gate3(
     assert called["g3"] is False
 
 
+def test_start_run_auto_false_sets_awaiting_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.models.blueprint import Blueprint, BlueprintSlide
+    from app.models.claim import ClaimLedger, ClaimLedgerEntry, ClaimType, EvidenceClass
+    from app.models.document import ParsedDocument
+    from app.models.numbers import NumbersIndex
+    from app.models.run import GenerationResult, RunStatus
+    from app.models.slide import SlideMap, SlidePlan
+    from app import orchestrator
+
+    pdf = tmp_path / "paper.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n")
+    store = RunStore(root=tmp_path / "runs", db_path=tmp_path / "t.sqlite3")
+    created = store.create_run(paper_path=pdf, brief="Create an 8 slide MSL deck")
+    orchestrator.set_store(store)
+    orchestrator.reset_runtime()
+
+    monkeypatch.setattr(
+        orchestrator,
+        "load_blueprint",
+        lambda _id: Blueprint(id="msl_physician_8", name="t", slides=[BlueprintSlide(role="title")]),
+    )
+    monkeypatch.setattr(
+        orchestrator.pdf_parser,
+        "parse_pdf",
+        lambda *a, **k: ParsedDocument(paper_id="p", page_count=2, pages=[], assets=[]),
+    )
+    monkeypatch.setattr(
+        orchestrator.ledger_mod,
+        "build_ledger",
+        lambda *a, **k: (
+            ClaimLedger(
+                paper_id="p",
+                entries=[
+                    ClaimLedgerEntry(
+                        id="C-001",
+                        text="t",
+                        verbatim="t",
+                        page=1,
+                        claim_type=ClaimType.VERBATIM,
+                        evidence_class=EvidenceClass.DESIGN,
+                    )
+                ],
+            ),
+            NumbersIndex(paper_id="p", numbers=[]),
+        ),
+    )
+    monkeypatch.setattr(
+        orchestrator.ledger_mod,
+        "write_ledger_artifacts",
+        lambda *a, **k: (tmp_path / "l.json", tmp_path / "n.json"),
+    )
+    monkeypatch.setattr(
+        orchestrator.planner,
+        "plan_slides",
+        lambda **k: SlidePlan(blueprint_id="msl_physician_8", slides=[]),
+    )
+    monkeypatch.setattr(
+        orchestrator.generator,
+        "generate_deck",
+        lambda **k: GenerationResult(
+            deck_path=str(tmp_path / "d.pptx"),
+            slide_map_path=str(tmp_path / "m.json"),
+            slide_plan_path=str(tmp_path / "p.json"),
+            slide_map=SlideMap(entries=[]),
+        ),
+    )
+    monkeypatch.setattr(
+        orchestrator.render_mod,
+        "render_deck",
+        lambda *a, **k: type("R", (), {"slide_images": ["s1.png"]})(),
+    )
+    monkeypatch.setattr(
+        orchestrator.gate1_content,
+        "run_gate1",
+        lambda **k: Gate1Result(passed=False, checks=[GateCheckResult(name="references_complete", passed=False)]),
+    )
+
+    created.status = RunStatus.RUNNING
+    store._persist_run(created)
+    orchestrator.start_run(created.id, auto=False)
+    assert store.get_run(created.id).status == RunStatus.AWAITING_REVIEW
+
+
 def test_run_round_does_not_write_placeholder_pngs_when_render_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -129,6 +129,9 @@ def test_create_parse_start_events_round_comments_lock(client: TestClient) -> No
     started = client.post(f"/runs/{run_id}/start")
     assert started.status_code == 202, started.text
     assert started.json()["events_url"] == f"/runs/{run_id}/events"
+    after_start = client.get(f"/runs/{run_id}")
+    assert after_start.status_code == 200
+    assert after_start.json()["status"] == "awaiting_review"
 
     stream = client.get(f"/runs/{run_id}/events")
     assert stream.status_code == 200
@@ -191,5 +194,34 @@ def test_create_parse_start_events_round_comments_lock(client: TestClient) -> No
     assert locked.status_code == 200
     assert locked.json()["locked_slides"] == [1]
 
+    store = getattr(client.app.state, "store", None)
+    assert store is not None
+    pptx_path = store.round_dir(run_id, 1) / "deck.pptx"
+    pptx_path.parent.mkdir(parents=True, exist_ok=True)
+    pptx_path.write_bytes(b"PK\x03\x04dummy-pptx")
+    run = store.get_run(run_id)
+    if run.rounds:
+        run.rounds[0].deck_path = str(pptx_path)
+        store._persist_run(run)
+
     exported = client.get(f"/runs/{run_id}/export")
-    assert exported.status_code in (200, 403, 501)
+    assert exported.status_code == 200, exported.text
+    assert "presentationml" in exported.headers.get("content-type", "")
+    assert exported.headers.get("content-disposition", "").endswith('.pptx"') or ".pptx" in (
+        exported.headers.get("content-disposition") or ""
+    )
+    assert not exported.headers.get("content-disposition", "").endswith("export.json")
+    assert exported.content.startswith(b"PK")
+
+    v1_skill = Path(__file__).resolve().parents[2] / "skills" / "v1" / "SKILL.md"
+    before = v1_skill.read_text(encoding="utf-8")
+    applied = client.post(
+        f"/runs/{run_id}/apply-skill",
+        json={"suggestions": ["Require an editable OOXML chart on quantitative slides."]},
+    )
+    assert applied.status_code == 202, applied.text
+    assert v1_skill.read_text(encoding="utf-8") == before
+    run_after = store.get_run(run_id)
+    assert run_after.skill_version != "v1"
+    proposal = store.run_dir(run_id) / "skill_proposals" / run_after.skill_version / "SKILL.md"
+    assert proposal.is_file()

@@ -79,7 +79,11 @@ async function main() {
   if (override.delta !== 2) throw new Error("override delta not stored");
 
   const exp = await fetch(`${BASE}/api/runs/${id}/export?round_n=1`);
-  if (exp.status !== 403) throw new Error(`export should be 403, got ${exp.status}`);
+  if (exp.status !== 200) throw new Error(`export should be 200 draft pptx, got ${exp.status}`);
+  const disposition = exp.headers.get("content-disposition") || "";
+  if (!disposition.includes(".pptx")) {
+    throw new Error(`export should be a .pptx, got ${disposition || exp.headers.get("content-type")}`);
+  }
 
   const runAfter = await (await fetch(`${BASE}/api/runs/${id}`)).json();
   if (runAfter.status !== "awaiting_review") {

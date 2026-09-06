@@ -235,7 +235,7 @@ export function DarwinApp() {
                   </button>
                   {runId && (
                     <a className="rounded border px-2 py-1 text-xs" href={api.exportUrl(runId, current.n)}>
-                      Export
+                      Download .pptx
                     </a>
                   )}
                 </div>

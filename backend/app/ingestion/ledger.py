@@ -23,6 +23,7 @@ from app.paths import PROMPTS_DIR
 logger = logging.getLogger(__name__)
 
 DEFAULT_PROMPT = PROMPTS_DIR / "ledger_extract.md"
+MAX_LEDGER_CLAIMS = 48
 
 # Deterministic number token. Label prefixes (N=, p=) stay attached to raw.
 _NUMBER_RE = re.compile(
@@ -129,6 +130,9 @@ def extract_claims(
         raw_entries = _heuristic_claims(pages, numbers_index)
 
     entries = _coerce_entries(raw_entries, numbers_index)
+    if len(entries) > MAX_LEDGER_CLAIMS:
+        logger.info("capping claim ledger from %s to %s entries", len(entries), MAX_LEDGER_CLAIMS)
+        entries = _prioritize_claims(entries)[:MAX_LEDGER_CLAIMS]
     return ClaimLedger(
         paper_id=paper_id,
         entries=entries,
@@ -346,6 +350,8 @@ def _heuristic_claims(pages: list[PageText], numbers_index: NumbersIndex) -> lis
                 continue
             if _SECTION_LINE.match(sentence):
                 continue
+            if section and str(section).lower() == "references":
+                continue
             seq += 1
             nums = by_page_sentence.get((page.page, sentence), [])
             claims.append(
@@ -388,6 +394,26 @@ def _index_to_number_value(item: NumberIndexEntry) -> dict[str, Any]:
         "p_value": p_value,
         "raw": item.raw,
     }
+
+
+def _prioritize_claims(entries: list[ClaimLedgerEntry]) -> list[ClaimLedgerEntry]:
+    """Prefer endpoints, safety, and numbered claims when the ledger explodes."""
+    rank = {
+        EvidenceClass.PRIMARY_ENDPOINT: 0,
+        EvidenceClass.SECONDARY_ENDPOINT: 1,
+        EvidenceClass.SAFETY: 2,
+        EvidenceClass.DESIGN: 3,
+        EvidenceClass.POST_HOC: 4,
+        EvidenceClass.EXPLORATORY: 5,
+        EvidenceClass.LIMITATION: 6,
+        EvidenceClass.BACKGROUND: 7,
+    }
+
+    def key(entry: ClaimLedgerEntry) -> tuple[int, int, int, str]:
+        has_num = 0 if entry.numbers else 1
+        return (rank.get(entry.evidence_class, 9), has_num, entry.page, entry.id)
+
+    return sorted(entries, key=key)
 
 
 def _coerce_entries(

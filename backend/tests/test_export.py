@@ -188,6 +188,32 @@ def test_create_bundle_zips_required_files(tmp_path: Path) -> None:
     assert log["rounds"][0]["comments"]
 
 
+def test_find_round_pptx_when_gates_fail(tmp_path: Path) -> None:
+    from app.export.bundle import find_round_pptx
+
+    pdf = tmp_path / "paper.pdf"
+    pdf.write_bytes(MIN_PDF)
+    store = RunStore(root=tmp_path / "runs", db_path=tmp_path / "t.sqlite3")
+    created = store.create_run(paper_path=pdf, brief="brief", run_id="run_abcdef012345")
+    rnd = _exportable_round()
+    rnd.gate1 = Gate1Result(
+        passed=False, checks=[GateCheckResult(name="references_complete", passed=False)]
+    )
+    rnd.locked_slides = []
+    rdir = store.round_dir(created.id, 1)
+    rdir.mkdir(parents=True, exist_ok=True)
+    deck = rdir / "deck.pptx"
+    deck.write_bytes(b"PK\x03\x04dummy-pptx")
+    rnd.deck_path = str(deck)
+    created.rounds = [rnd]
+    store._persist_run(created)
+    found = find_round_pptx(created, round_n=1, store=store)
+    assert found == deck
+    ok, msg = export_allowed(created, round_n=1)
+    assert ok is False
+    assert "Gate 1" in msg
+
+
 def test_create_bundle_raises_when_blocked(tmp_path: Path) -> None:
     pdf = tmp_path / "paper.pdf"
     pdf.write_bytes(MIN_PDF)
