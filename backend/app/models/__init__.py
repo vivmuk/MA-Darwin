@@ -6,6 +6,16 @@ from app.models.blueprint import Blueprint, BlueprintSlide
 from app.models.claim import ClaimLedger, ClaimLedgerEntry, ClaimType, EvidenceClass, NumberValue
 from app.models.common import BoundingBox, CheckLocation, IssueCoordinates
 from app.models.document import ExtractedAsset, PageText, ParsedDocument
+from app.models.layout import (
+    CANVAS_HEIGHT_IN,
+    CANVAS_WIDTH_IN,
+    FontWeight,
+    LayoutElement,
+    LayoutElementKind,
+    LayoutSlide,
+    LayoutSpec,
+    TextAlign,
+)
 from app.models.gates import (
     Gate1Result,
     Gate2Result,
@@ -83,7 +93,15 @@ __all__ = [
     "GenerationResult",
     "HumanComment",
     "HumanReviewState",
+    "CANVAS_HEIGHT_IN",
+    "CANVAS_WIDTH_IN",
+    "FontWeight",
     "IssueCoordinates",
+    "LayoutElement",
+    "LayoutElementKind",
+    "LayoutSlide",
+    "LayoutSpec",
+    "TextAlign",
     "JudgeCriterionScore",
     "JudgeScore",
     "MutationKind",

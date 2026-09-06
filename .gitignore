@@ -8,3 +8,4 @@ build/
 runs/*
 !runs/.gitkeep
 *.sqlite3
+.env

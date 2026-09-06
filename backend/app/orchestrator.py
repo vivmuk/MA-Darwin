@@ -311,21 +311,6 @@ def _save_artifact(run_id: str, round_n: int, name: str, model: object) -> None:
         path.write_text(model.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
 
-def _placeholder_pngs(output_dir: Path, count: int) -> list[str]:
-    import pymupdf
-
-    slides = output_dir / "slides"
-    slides.mkdir(parents=True, exist_ok=True)
-    paths: list[str] = []
-    for i in range(1, max(count, 1) + 1):
-        dest = slides / f"slide_{i:02d}.png"
-        pix = pymupdf.Pixmap(pymupdf.csRGB, (0, 0, 1280, 720), False)
-        pix.clear_with(255)
-        pix.save(str(dest))
-        paths.append(str(dest))
-    return paths
-
-
 def _prior_deck(run: Run, round_n: int) -> Path | None:
     if round_n <= 1:
         return None
@@ -565,25 +550,22 @@ def run_round(run_id: str, *, round_n: int | None = None) -> Round:
             assets=_load_assets(run_id) or parsed.assets,
         )
         rnd.deck_path = gen.deck_path
+        rnd.layout_spec_path = gen.layout_spec_path or str(rdir / "layout_spec.json")
         slide_map: SlideMap = gen.slide_map
+        layout_spec = gen.layout_spec
+        if layout_spec is None and gen.layout_spec_path:
+            from app.generation.layout import load_layout_spec
+
+            layout_spec = load_layout_spec(gen.layout_spec_path)
 
         emit(run_id, ProgressEventType.RENDERING, "Rendering", round_n=n)
-        try:
-            rendered: RenderResult = render_mod.render_deck(
-                gen.deck_path,
-                rdir,
-                dpi=int(load_defaults().get("render_dpi", 150)),
-            )
-            rnd.slide_images = list(rendered.slide_images)
-        except (RuntimeError, FileNotFoundError, ValueError):
-            count = len(slide_plan.slides) or len(blueprint.slides) or 1
-            rnd.slide_images = _placeholder_pngs(rdir, count)
-            emit(
-                run_id,
-                ProgressEventType.RENDERING,
-                "Rendering used placeholder PNGs (LibreOffice unavailable)",
-                round_n=n,
-            )
+        rendered: RenderResult = render_mod.render_deck(
+            output_dir=rdir,
+            layout_spec=layout_spec,
+            dpi=int(load_defaults().get("render_dpi", 150)),
+        )
+        rnd.slide_images = list(rendered.slide_images)
+        rnd.slide_svgs = list(getattr(rendered, "slide_svgs", None) or [])
 
         gate1 = gate1_content.run_gate1(
             pptx_path=gen.deck_path,
@@ -605,7 +587,7 @@ def run_round(run_id: str, *, round_n: int | None = None) -> Round:
         if not gate1.passed:
             return _finish_round(run_id, run, rnd, skip_reason="gate1")
 
-        gate2 = gate2_visual.run_gate2(pptx_path=gen.deck_path, slide_images=rnd.slide_images)
+        gate2 = gate2_visual.run_gate2(layout_spec=layout_spec, slide_images=rnd.slide_images)
         rnd.gate2 = gate2
         _save_artifact(run_id, n, "gate2", gate2)
         flags2 = sum(1 for c in gate2.checks if not c.passed)

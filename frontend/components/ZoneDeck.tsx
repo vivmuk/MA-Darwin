@@ -1,6 +1,7 @@
 "use client";
 
-import { pinPosition } from "@/lib/export-blockers";
+import { useEffect, useState } from "react";
+import { layoutPinPosition, pinPosition } from "@/lib/export-blockers";
 import type { RoundDetail } from "@/lib/types";
 
 export function ZoneDeck({
@@ -41,7 +42,7 @@ export function ZoneDeck({
     );
   }
 
-  const images = current.slide_images;
+  const images = current.slide_svgs?.length ? current.slide_svgs : current.slide_images;
   const showCompare = compare && previous;
 
   return (
@@ -97,7 +98,7 @@ export function ZoneDeck({
         {showCompare && previous && (
           <SlideGrid
             round={previous}
-            images={previous.slide_images}
+            images={previous.slide_svgs?.length ? previous.slide_svgs : previous.slide_images}
             selectedSlide={selectedSlide}
             provenance={provenance}
             onSelect={onSelect}
@@ -217,6 +218,7 @@ function SlideCanvas({
   onClick?: (x: number, y: number) => void;
 }) {
   const pins = collectPins(round, slide);
+  const layoutSlide = round.layout_spec?.slides.find((s) => s.slide === slide);
   const claims = (round.slide_map?.entries ?? []).filter((e) => e.slide === slide);
   return (
     <div
@@ -227,10 +229,9 @@ function SlideCanvas({
         onClick((e.clientX - box.left) / box.width, (e.clientY - box.top) / box.height);
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={`Slide ${slide}`} className="block h-auto w-full" />
+      <InlineSlide src={src} slide={slide} />
       {pins.map((pin, i) => {
-        const pos = pinPosition(pin.x, pin.y);
+        const pos = pin.kind === "g2" ? layoutPinPosition(pin.x, pin.y) : pinPosition(pin.x, pin.y);
         if (!pos) return null;
         return (
           <span
@@ -242,16 +243,55 @@ function SlideCanvas({
         );
       })}
       {provenance &&
-        claims.map((entry, i) => (
-          <span
-            key={entry.element_id}
-            className="absolute rounded-sm bg-ink/80 px-1 py-0.5 font-mono text-[9px] text-paper"
-            style={{ left: `${8 + (i % 3) * 28}%`, top: `${18 + Math.floor(i / 3) * 14}%` }}
-          >
-            {entry.claim_ids.join(" ")}
-          </span>
-        ))}
+        claims.map((entry) => {
+          const el = layoutSlide?.elements.find((item) => item.id === entry.element_id);
+          const pos = el ? layoutPinPosition(el.x, el.y) : null;
+          return (
+            <span
+              key={entry.element_id}
+              className="absolute rounded-sm bg-ink/80 px-1 py-0.5 font-mono text-[9px] text-paper"
+              style={pos ? { left: pos.left, top: pos.top } : { left: "8%", top: "18%" }}
+            >
+              {entry.claim_ids.join(" ")}
+            </span>
+          );
+        })}
     </div>
+  );
+}
+
+function InlineSlide({ src, slide }: { src: string; slide: number }) {
+  const [markup, setMarkup] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!src.toLowerCase().includes(".svg") && !src.startsWith("data:image/svg")) {
+      setMarkup(null);
+      return;
+    }
+    fetch(src)
+      .then((res) => (res.ok ? res.text() : Promise.reject(new Error("svg"))))
+      .then((text) => {
+        if (!cancelled && text.includes("<svg")) setMarkup(text);
+      })
+      .catch(() => {
+        if (!cancelled) setMarkup(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+  if (markup) {
+    return (
+      <div
+        className="block h-auto w-full [&>svg]:h-auto [&>svg]:w-full"
+        aria-label={`Slide ${slide}`}
+        dangerouslySetInnerHTML={{ __html: markup }}
+      />
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={`Slide ${slide}`} className="block h-auto w-full" />
   );
 }
 

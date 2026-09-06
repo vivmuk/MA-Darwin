@@ -1,1 +1,1 @@
-"""pptx → PDF → PNG render pipeline (Phase 3)."""
+"""LayoutSpec → SVG / PNG / PDF render pipeline."""

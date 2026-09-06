@@ -24,12 +24,32 @@ export function exportBlockers(round: RoundDetail | null, slideCount: number): s
   return blockers;
 }
 
+export const CANVAS_WIDTH_IN = 13.333333;
+export const CANVAS_HEIGHT_IN = 7.5;
+
+function pct(value: number): string {
+  return `${Math.min(98, Math.max(0, Math.round(value * 100) / 100))}%`;
+}
+
 export function pinPosition(x: number | null | undefined, y: number | null | undefined): {
   left: string;
   top: string;
 } | null {
   if (x == null || y == null) return null;
-  const nx = x > 1 ? x / 960 : x;
-  const ny = y > 1 ? y / 540 : y;
-  return { left: `${Math.min(98, Math.max(0, nx * 100))}%`, top: `${Math.min(98, Math.max(0, ny * 100))}%` };
+  // Legacy comments / e2e store unit-square fractions.
+  if (x <= 1 && y <= 1) {
+    return { left: pct(x * 100), top: pct(y * 100) };
+  }
+  // LayoutSpec inches. Values past the canvas are treated as points (72 / in).
+  const xi = x > CANVAS_WIDTH_IN + 0.05 ? x / 72 : x;
+  const yi = y > CANVAS_HEIGHT_IN + 0.05 ? y / 72 : y;
+  return { left: pct((xi / CANVAS_WIDTH_IN) * 100), top: pct((yi / CANVAS_HEIGHT_IN) * 100) };
+}
+
+export function layoutPinPosition(x: number | null | undefined, y: number | null | undefined): {
+  left: string;
+  top: string;
+} | null {
+  if (x == null || y == null) return null;
+  return { left: pct((x / CANVAS_WIDTH_IN) * 100), top: pct((y / CANVAS_HEIGHT_IN) * 100) };
 }

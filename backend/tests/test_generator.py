@@ -149,6 +149,9 @@ def test_generate_deck_writes_artifacts_and_notes(tmp_path: Path) -> None:
     assert Path(result.deck_path).is_file()
     assert Path(result.slide_map_path).is_file()
     assert Path(result.slide_plan_path).is_file()
+    assert Path(result.layout_spec_path).is_file()
+    assert result.layout_spec is not None
+    assert result.layout_spec.slides[0].elements[0].x == 0.5
 
     loaded = load_slide_map(result.slide_map_path)
     assert loaded.entries

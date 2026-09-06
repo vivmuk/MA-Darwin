@@ -35,10 +35,17 @@ describe("exportBlockers", () => {
 });
 
 describe("pinPosition", () => {
-  it("normalizes point coordinates to percent", () => {
-    const pos = pinPosition(72, 180);
+  it("keeps unit-square comments as percents", () => {
+    const pos = pinPosition(0.4, 0.55);
+    assert.ok(pos);
+    assert.equal(pos.left, "40%");
+    assert.equal(pos.top, "55%");
+  });
+
+  it("maps LayoutSpec inches onto the 13.333 x 7.5 canvas", () => {
+    const pos = pinPosition(1, 2.5);
     assert.ok(pos);
     assert.equal(pos.left, "7.5%");
-    assert.equal(pos.top, `${(180 / 540) * 100}%`);
+    assert.equal(pos.top, "33.33%");
   });
 });

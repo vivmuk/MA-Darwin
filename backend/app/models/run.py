@@ -9,6 +9,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from app.models.gates import Gate1Result, Gate2Result, Gate3Result
+from app.models.layout import LayoutSpec
 from app.models.slide import HumanComment, SlideMap
 
 
@@ -82,6 +83,8 @@ class Round(BaseModel):
     n: int = Field(..., ge=1)
     deck_path: Optional[str] = None
     slide_images: list[str] = Field(default_factory=list)
+    slide_svgs: list[str] = Field(default_factory=list)
+    layout_spec_path: Optional[str] = None
     gate1: Optional[Gate1Result] = None
     gate2: Optional[Gate2Result] = None
     gate3: Optional[Gate3Result] = None
@@ -187,20 +190,23 @@ class ProgressEvent(BaseModel):
 
 
 class GenerationResult(BaseModel):
-    """Output of the deck generator (pptx path + maps)."""
+    """Output of the deck generator (layout spec + pptx + maps)."""
 
     deck_path: str
     slide_map_path: str
     slide_plan_path: str
     slide_map: SlideMap
+    layout_spec_path: str = ""
+    layout_spec: Optional[LayoutSpec] = None
     speaker_notes_pages: list[int] = Field(default_factory=list)
 
 
 class RenderResult(BaseModel):
-    """Output of the render pipeline."""
+    """Output of the LayoutSpec render pipeline (SVG + PNG + PDF)."""
 
     pdf_path: str
     slide_images: list[str] = Field(default_factory=list)
+    slide_svgs: list[str] = Field(default_factory=list)
     dpi: int = Field(150, ge=72)
 
 

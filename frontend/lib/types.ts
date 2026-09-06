@@ -147,10 +147,37 @@ export interface Run {
   updated_at?: string;
 }
 
+export interface LayoutElement {
+  id: string;
+  kind?: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  text?: string;
+  claim_ids?: string[];
+}
+
+export interface LayoutSlide {
+  slide: number;
+  role?: string;
+  width?: number;
+  height?: number;
+  elements: LayoutElement[];
+}
+
+export interface LayoutSpec {
+  canvas_width: number;
+  canvas_height: number;
+  slides: LayoutSlide[];
+}
+
 export interface RoundDetail {
   n: number;
   deck_path?: string | null;
   slide_images: string[];
+  slide_svgs?: string[];
+  layout_spec?: LayoutSpec | null;
   gate1?: Gate1Result | null;
   gate2?: Gate2Result | null;
   gate3?: Gate3Result | null;

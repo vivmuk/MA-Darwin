@@ -18,6 +18,22 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 MIN_PDF = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"
 
 
+def test_startup_runs_font_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    app_mod = importlib.import_module("app.api.app")
+    called = {"fonts": False}
+    monkeypatch.setattr(app_mod, "check_required_fonts", lambda: called.__setitem__("fonts", True))
+    store = RunStore(root=tmp_path / "runs", db_path=tmp_path / "t.sqlite3")
+    application = app_mod.create_app(store=store, check_fonts=True)
+    with TestClient(application):
+        pass
+    assert called["fonts"] is True
+    assert not hasattr(app_mod, "check_libreoffice")
+
+
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     store = RunStore(root=tmp_path / "runs", db_path=tmp_path / "t.sqlite3")

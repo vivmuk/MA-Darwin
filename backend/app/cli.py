@@ -45,6 +45,21 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override runs root (default: <repo>/runs)",
     )
+
+    compare = sub.add_parser(
+        "compare-layout",
+        help="Write one deck's SVGs and pptx side by side for visual fidelity review",
+    )
+    compare.add_argument("--layout", type=Path, default=None, help="Path to layout_spec.json")
+    compare.add_argument("--run-id", default=None, help="Load layout_spec.json from a run's latest round")
+    compare.add_argument("--round", type=int, default=None, dest="round_n", help="Round number (with --run-id)")
+    compare.add_argument("--out", type=Path, required=True, help="Output directory")
+    compare.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=None,
+        help="Override runs root (default: <repo>/runs)",
+    )
     return parser
 
 
@@ -86,6 +101,33 @@ def cmd_extract(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_compare_layout(args: argparse.Namespace) -> int:
+    from app.generation.layout import load_layout_spec
+    from app.generation.pptx_writer import write_pptx
+    from app.rendering.svg_renderer import write_slide_svgs
+
+    layout_path = args.layout
+    if layout_path is None:
+        if not args.run_id:
+            print("error: provide --layout or --run-id", file=sys.stderr)
+            return 1
+        store = RunStore(root=args.runs_dir) if args.runs_dir else RunStore()
+        run = store.get_run(args.run_id)
+        n = args.round_n or run.best_round_n or (run.rounds[-1].n if run.rounds else 1)
+        layout_path = store.round_dir(args.run_id, n) / "layout_spec.json"
+    if not Path(layout_path).is_file():
+        print(f"error: layout spec not found: {layout_path}", file=sys.stderr)
+        return 1
+    spec = load_layout_spec(layout_path)
+    out = Path(args.out)
+    svg_dir = out / "svg"
+    write_slide_svgs(spec, svg_dir)
+    pptx = write_pptx(spec, out / "deck.pptx")
+    print(svg_dir)
+    print(pptx, file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -93,6 +135,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_new_run(args)
     if args.command == "extract":
         return cmd_extract(args)
+    if args.command == "compare-layout":
+        return cmd_compare_layout(args)
     parser.error(f"unknown command: {args.command}")
     return 2
 

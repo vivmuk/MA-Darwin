@@ -60,6 +60,7 @@ function buildRound(n: number, artifacts: ReturnType<typeof loadFrozenArtifacts>
     n,
     deck_path: `round_${n}/deck.pptx`,
     slide_images: slideImages(),
+    slide_svgs: slideImages(),
     gate1: structuredClone(artifacts.gate1),
     gate2: structuredClone(artifacts.gate2),
     gate3,

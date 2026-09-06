@@ -192,16 +192,32 @@ def get_round(request: Request, run_id: str, round_n: int) -> dict[str, object]:
     for path in rnd.slide_images:
         name = Path(path).name
         images.append(f"/runs/{run_id}/rounds/{round_n}/slides/{name}")
+    svgs = []
+    for path in rnd.slide_svgs or []:
+        name = Path(path).name
+        svgs.append(f"/runs/{run_id}/rounds/{round_n}/slides/{name}")
+    if not svgs:
+        rdir = _store(request).round_dir(run_id, round_n) / "slides"
+        if rdir.is_dir():
+            svgs = [f"/runs/{run_id}/rounds/{round_n}/slides/{p.name}" for p in sorted(rdir.glob("slide_*.svg"))]
     slide_map = None
     map_path = _store(request).round_dir(run_id, round_n) / "slide_map.json"
     if map_path.is_file():
         from app.models.slide import SlideMap
 
         slide_map = json.loads(SlideMap.model_validate_json(map_path.read_text(encoding="utf-8")).model_dump_json())
+    layout_spec = None
+    spec_path = Path(rnd.layout_spec_path) if rnd.layout_spec_path else _store(request).round_dir(run_id, round_n) / "layout_spec.json"
+    if spec_path.is_file():
+        from app.models.layout import LayoutSpec
+
+        layout_spec = json.loads(LayoutSpec.model_validate_json(spec_path.read_text(encoding="utf-8")).model_dump_json())
     return {
         "n": rnd.n,
         "deck_path": rnd.deck_path,
         "slide_images": images,
+        "slide_svgs": svgs,
+        "layout_spec": layout_spec,
         "gate1": json.loads(rnd.gate1.model_dump_json()) if rnd.gate1 else None,
         "gate2": json.loads(rnd.gate2.model_dump_json()) if rnd.gate2 else None,
         "gate3": json.loads(rnd.gate3.model_dump_json()) if rnd.gate3 else None,
@@ -223,7 +239,8 @@ def get_slide_image(request: Request, run_id: str, round_n: int, name: str) -> F
     path = _store(request).round_dir(run_id, round_n) / "slides" / name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="slide image not found")
-    return FileResponse(path, media_type="image/png")
+    media = "image/svg+xml" if path.suffix.lower() == ".svg" else "image/png"
+    return FileResponse(path, media_type=media)
 
 
 @router.post("/runs/{run_id}/rounds/{round_n}/comments")

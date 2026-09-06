@@ -6,6 +6,8 @@ from pathlib import Path
 
 from app.models.blueprint import Blueprint
 from app.models.claim import ClaimLedger
+from app.models.document import ExtractedAsset
+from app.models.layout import LayoutSpec
 from app.models.run import Brief
 from app.models.slide import HumanComment, SlidePlan
 
@@ -45,6 +47,30 @@ def plan_slides(
         Artifact suitable for ``slide_plan.json``.
     """
     raise NotImplementedError
+
+
+def emit_layout_spec(
+    *,
+    plan: SlidePlan,
+    blueprint: Blueprint,
+    ledger: ClaimLedger,
+    assets: list[ExtractedAsset] | None = None,
+    prior_spec: LayoutSpec | None = None,
+    locked_slides: list[int] | None = None,
+) -> LayoutSpec:
+    """Deterministic layout emission: SlidePlan → explicit inch coordinates."""
+    if any(arg is None for arg in (plan, blueprint, ledger)):
+        raise NotImplementedError
+    from app.generation.layout import compose_layout_spec
+
+    return compose_layout_spec(
+        plan=plan,
+        blueprint=blueprint,
+        ledger=ledger,
+        assets=assets,
+        prior_spec=prior_spec,
+        locked_slides=locked_slides,
+    )
 
 
 def write_slide_plan(plan: SlidePlan, output_path: Path | str) -> Path:
