@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Upload Viewer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <section class="upload-panel">
+        <p class="eyebrow">Document Center</p>
+        <h1>Upload a PDF</h1>
+        <p class="subtitle">Choose a PDF file to preview it directly in the browser.</p>
+
+        <label class="upload-box" for="pdfInput">
+          <input id="pdfInput" type="file" accept="application/pdf" />
+          <span class="upload-icon">📄</span>
+          <span class="upload-text">Select PDF</span>
+        </label>
+
+        <div class="file-meta">
+          <span class="label">Selected file:</span>
+          <span id="fileName">None</span>
+        </div>
+
+        <p id="statusMessage" class="status">Waiting for a PDF file...</p>
+      </section>
+
+      <section class="viewer-panel">
+        <div class="viewer-header">
+          <h2>Preview</h2>
+        </div>
+        <iframe id="pdfPreview" title="PDF preview" src="about:blank"></iframe>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

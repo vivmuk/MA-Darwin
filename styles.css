@@ -1,0 +1,146 @@
+:root {
+  --bg: #f4f7fb;
+  --panel: #ffffff;
+  --primary: #1d4ed8;
+  --primary-soft: #dbeafe;
+  --text: #0f172a;
+  --muted: #475569;
+  --border: #dbe3f0;
+  --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: linear-gradient(135deg, #eef4ff, #f8fafc);
+  color: var(--text);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 48px auto;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 24px;
+}
+
+.upload-panel,
+.viewer-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+
+.upload-panel {
+  padding: 28px 22px;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: 2rem;
+}
+
+.subtitle {
+  margin: 0 0 24px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.upload-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 2px dashed var(--primary);
+  background: var(--primary-soft);
+  border-radius: 18px;
+  min-height: 150px;
+  padding: 20px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.upload-box:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(29, 78, 216, 0.12);
+}
+
+.upload-box input {
+  display: none;
+}
+
+.upload-icon {
+  font-size: 3rem;
+}
+
+.upload-text {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.file-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  color: var(--muted);
+}
+
+.label {
+  font-weight: 700;
+}
+
+.status {
+  margin-top: 18px;
+  color: var(--muted);
+  min-height: 22px;
+}
+
+.viewer-panel {
+  padding: 18px;
+}
+
+.viewer-header {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+}
+
+.viewer-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+#pdfPreview {
+  width: 100%;
+  min-height: 720px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+@media (max-width: 900px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+
+  #pdfPreview {
+    min-height: 500px;
+  }
+}
