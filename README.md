@@ -64,6 +64,7 @@ skills/sundai-powerpoint/    # Skill + scripts + Darwin lineage/
 frontend/                    # Next.js — intro + Darwin loop
 Dockerfile.backend           # Python + LibreOffice + fonts
 Dockerfile.frontend          # Next.js
+requirements.txt             # Triggers Railpack pip install (pyproject.toml alone is not enough)
 railpack.json                # Railpack start command if Railway skips the Dockerfile
 docs/RAILWAY.md              # Two-service deploy
 ```
