@@ -495,11 +495,70 @@ downloadBtn.addEventListener('click', async (e) => {
   }
 });
 
-function restoreLastDeck() {
+function clearStoredDeck() {
+  try {
+    localStorage.removeItem(LAST_DECK_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.removeItem(LAST_DECK_KEY);
+  } catch {
+    /* ignore */
+  }
+  currentRunId = null;
+  currentDeckId = null;
+  currentRoundN = 1;
+  lastRound = null;
+  slides = [];
+}
+
+function isMissingRun(res, body) {
+  if (res.status === 404) return true;
+  const detail = typeof body?.detail === 'string' ? body.detail : JSON.stringify(body?.detail || '');
+  return /run not found/i.test(detail);
+}
+
+async function restoreLastDeck() {
+  showView('upload');
   const data = readJson(LAST_DECK_KEY);
-  if (data && Array.isArray(data.slides) && data.slides.length) {
-    loadDeck(data);
+  const runId = data && (data.id || data.run_id);
+  if (!runId) {
+    if (data) clearStoredDeck();
+    return;
+  }
+  try {
+    const res = await fetch(`/api/runs/${runId}`);
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+    if (!res.ok || isMissingRun(res, body)) {
+      clearStoredDeck();
+      showView('upload');
+      return;
+    }
+    if (selectedFile || (currentRunId && currentRunId !== runId)) return;
+    const roundN =
+      data.round_n ||
+      body.best_round_n ||
+      (Array.isArray(body.rounds) && body.rounds.length ? body.rounds[body.rounds.length - 1].n : 1);
+    const roundRes = await fetch(`/api/runs/${runId}/rounds/${roundN}`);
+    if (!roundRes.ok) {
+      clearStoredDeck();
+      showView('upload');
+      return;
+    }
+    if (selectedFile || (currentRunId && currentRunId !== runId)) return;
+    const live = roundToDeck(runId, await roundRes.json());
+    loadDeck(live);
+    writeJson(LAST_DECK_KEY, live);
     showView('result');
+  } catch {
+    clearStoredDeck();
+    showView('upload');
   }
 }
 
@@ -552,18 +611,13 @@ document.addEventListener('keydown', (e) => {
 function restartJourney() {
   slides = [];
   currentSlide = 0;
-  currentDeckId = null;
   selectedFile = null;
   pdfInput.value = '';
   fileName.textContent = 'None';
   statusMessage.textContent = 'Waiting for a PDF file...';
   pdfPreview.src = 'about:blank';
   convertBtn.hidden = true;
-  try {
-    localStorage.removeItem(LAST_DECK_KEY);
-  } catch {
-    /* ignore */
-  }
+  clearStoredDeck();
   showView('upload');
 }
 
@@ -1252,5 +1306,6 @@ historyBackBtn.addEventListener('click', () => showView(historyReturnView));
 outcomeDoneBtn.addEventListener('click', () => showView('result'));
 outcomeRestartBtn.addEventListener('click', restartJourney);
 
-/* ---------- boot ---------- */
+/* ---------- boot: always start on upload; restore only if the run still exists ---------- */
+showView('upload');
 restoreLastDeck();

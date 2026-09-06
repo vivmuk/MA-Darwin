@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.app import create_app
+from app.paths import REPO_ROOT
 from app.storage.run_store import RunStore
 
 
@@ -48,3 +49,15 @@ def test_root_serves_exported_ui(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         assert client.get("/health").json() == {"status": "ok"}
         assert client.get("/api/health").json() == {"status": "ok"}
         assert client.get("/docs").status_code == 200
+
+
+def test_zac_app_does_not_restore_missing_runs() -> None:
+    script = (REPO_ROOT / "frontend" / "public" / "app" / "script.js").read_text(encoding="utf-8")
+    assert "async function restoreLastDeck" in script
+    assert "fetch(`/api/runs/${runId}`)" in script or 'fetch(`/api/runs/${runId}`)' in script
+    assert "isMissingRun" in script
+    assert "clearStoredDeck" in script
+    assert "showView('upload')" in script
+    boot = script.split("/* ---------- boot")[-1]
+    assert "showView('upload')" in boot
+    assert "restoreLastDeck()" in boot
