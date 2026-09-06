@@ -6,8 +6,11 @@ import argparse
 import sys
 from pathlib import Path
 
+from app.llm_env import ensure_dotenv
 from app.paths import REPO_ROOT
 from app.storage.run_store import RunStore
+
+ensure_dotenv()
 
 
 def build_parser() -> argparse.ArgumentParser:

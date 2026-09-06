@@ -398,8 +398,10 @@ def _invoke_judge(
     scope: str,
     role: str,
 ) -> list[JudgeCriterionScore]:
+    from app.llm_env import llm_configured
+
     mode = (backend or os.environ.get("MA_DARWIN_JUDGE") or "auto").lower()
-    if mode == "llm" or (mode == "auto" and os.environ.get("ANTHROPIC_API_KEY")):
+    if mode == "llm" or (mode == "auto" and llm_configured()):
         try:
             parsed = _llm_judge(image_path, prompt)
             if parsed:
@@ -419,41 +421,24 @@ def _invoke_judge(
 def _llm_judge(image_path: Path | str, prompt: str) -> list[dict[str, Any]]:
     import base64
 
-    import httpx
+    from app.llm_env import chat_text
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return []
     raw = Path(image_path).read_bytes()
     b64 = base64.standard_b64encode(raw).decode("ascii")
-    body = {
-        "model": os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),
-        "max_tokens": 2048,
-        "temperature": 0,
-        "system": prompt,
-        "messages": [
+    text = chat_text(
+        system=prompt,
+        user=[
+            {"type": "text", "text": "Score this image against the rubric. JSON array only."},
             {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Score this image against the rubric. JSON array only."},
-                    {
-                        "type": "image",
-                        "source": {"type": "base64", "media_type": "image/png", "data": b64},
-                    },
-                ],
-            }
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{b64}"},
+            },
         ],
-    }
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-    }
-    with httpx.Client(timeout=120.0) as client:
-        response = client.post("https://api.anthropic.com/v1/messages", headers=headers, json=body)
-        response.raise_for_status()
-        data = response.json()
-    text = "".join(part.get("text", "") for part in data.get("content", []) if part.get("type") == "text")
+        max_tokens=2048,
+        temperature=0,
+    )
+    if not text:
+        return []
     return _parse_json_array(text)
 
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -298,30 +297,17 @@ def _pages_payload(pages: list[PageText], numbers_index: NumbersIndex) -> str:
 
 
 def _default_llm(system_prompt: str, user_payload: str) -> list[dict[str, Any]]:
-    """Call Anthropic when ANTHROPIC_API_KEY is set; otherwise return []."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return []
-    import httpx
+    """Call configured LLM (Venice / OpenRouter / Anthropic); otherwise return []."""
+    from app.llm_env import chat_text
 
-    model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-    }
-    body = {
-        "model": model,
-        "max_tokens": 8192,
-        "temperature": 0,
-        "system": system_prompt or "Extract a claim ledger as a JSON array.",
-        "messages": [{"role": "user", "content": user_payload}],
-    }
-    with httpx.Client(timeout=120.0) as client:
-        response = client.post("https://api.anthropic.com/v1/messages", headers=headers, json=body)
-        response.raise_for_status()
-        data = response.json()
-    text = "".join(part.get("text", "") for part in data.get("content", []) if part.get("type") == "text")
+    text = chat_text(
+        system=system_prompt or "Extract a claim ledger as a JSON array.",
+        user=user_payload,
+        max_tokens=8192,
+        temperature=0,
+    )
+    if not text:
+        return []
     return _parse_json_array(text)
 
 

@@ -9,9 +9,12 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from app.api.routes import router
+from app.llm_env import ensure_dotenv
 from app.paths import RUNS_DIR
 from app.rendering.font_check import check_required_fonts
 from app.storage.run_store import RunStore
+
+ensure_dotenv()
 
 
 def _runs_root() -> Path:

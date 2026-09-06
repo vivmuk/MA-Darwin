@@ -25,6 +25,7 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate
 source .venv/bin/activate
 pip install -e ".[dev]"
+cp .env.example .env   # then set OPENROUTER_API_KEY (or ANTHROPIC_API_KEY)
 pytest
 python -m app.cli new-run --paper path/to/paper.pdf --brief "Create an 8 slide MSL deck"
 ```
