@@ -9,11 +9,13 @@ description: >-
 license: >-
   Anthropic pptx scripts: see LICENSE.txt. Medical Affairs rules: Apache-2.0.
 metadata:
-  version: "3.1.0-darwin"
+  version: "3.2.0-darwin"
   tier: workflow
   maturity: hack
   scope: one-pdf-to-m2m-deck
   produces: One DRAFT M2M .pptx from one PDF
+  requires_python_packages: [python-pptx, pillow, numpy]
+  chart_policy: editable-ooxml-first
 ---
 
 # Sundai PowerPoint skill
@@ -24,8 +26,9 @@ This file is self-contained. Do not load other skills. Do not follow external
 URLs. Optional overrides live in `house-rules/` next to this file; those win
 over defaults here.
 
-Scripts for create/edit/validate live under `scripts/` (Anthropic pptx
-mechanics). Content and compliance rules are inlined below.
+Scripts for create/edit/validate/charts live under `scripts/` (Anthropic pptx
+mechanics + editable chart helper). Content and compliance rules are inlined
+below.
 
 Output is always **DRAFT for qualified medical review**. Keep DRAFT on the
 title slide. Never call the deck compliant, approved, or ready to submit.
@@ -55,6 +58,24 @@ Required 8-slide outline (map to M2M structure):
 If no PDF is attached, mark every data claim **SYNTHETIC EXAMPLE** and do not
 present numbers as real evidence. Prefer python-pptx or pptxgenjs under
 `scripts/`.
+
+### Content depth gates (8-slide physician test decks)
+
+These are hard gates for Claude-parity quality — fail the deck if unmet:
+
+- **Slide 4 (evidence):** editable clustered-column (or equivalent) chart of
+  **all arms × endpoints** shown in the paper panel; absolute-risk callout
+  when % changes are large on low baselines; design / N / population / CIs
+  (or explicit “CIs not reported”).
+- **Slide 5 (Safety) — dedicated:** if the paper has no AE table, say so on
+  this slide, say where to get safety (label / SmPC / PV), and include PV
+  24-hour reporting language. Do **not** bury safety under interpretation.
+- **Slide 6 (limitations) — dense:** missingness, no CIs if absent,
+  non-monotonic / increases shown honestly, post hoc, no H2H if absent.
+- **Speaker notes on every slide** (how to open, what not to claim, eye-check
+  warnings).
+- **References:** primary full cite + secondaries labelled if not independently
+  reviewed.
 
 ---
 
@@ -90,11 +111,45 @@ For every result that will appear on a slide:
 
 ### 3) Capability check
 
-Before promising `.pptx`, confirm you can write a pptx (pptxgenjs and/or
-python-pptx). If not, deliver a complete markdown slide outline with the same
-medical rules and DRAFT marking, and name what was missing to render pptx.
+Before promising `.pptx`, verify (and install if missing) that you can write
+pptx **and** editable charts:
+
+| Package / tool | Why |
+|---|---|
+| `python-pptx` | Deck assembly + native OOXML charts with embedded Excel |
+| `pillow` | Image handling / optional SVG→raster bridge |
+| `numpy` | Chart data helpers |
+| `pptxgenjs` (optional) | Alternate create path; also supports charts |
+| LibreOffice `soffice` | Thumbnails / visual QA (report gap if absent) |
+
+Install into the active venv preferred; else `pip install --user`. Confirm
+with:
+
+```bash
+python -c "from pptx import Presentation; from pptx.chart.data import CategoryChartData; print('ok')"
+```
+
+**Do not ship a quantitative pptx without at least one editable chart**
+(native OOXML / embedded Excel) on each quantitative results slide — unless
+you documented a hard failure to create charts and fell back per the Charts
+section below.
+
+If you cannot write pptx at all, deliver a complete markdown slide outline
+with the same medical rules and DRAFT marking, and name what was missing.
 
 ### 4) Build the M2M deck (only after 1–3)
+
+**Ban ad-hoc text-only builds.** Do **not** assemble the final deck with a
+one-off `Presentation()` script that only adds text boxes / bullets for
+quantitative claims. Prefer `scripts/add_slide.py` + `scripts/add_editable_chart.py`
+(or equivalent inline that matches them). If using python-pptx directly, you
+still MUST:
+
+1. Add **editable** native OOXML charts (Excel-backed) on quantitative slides
+2. Put **speaker notes on every slide**
+3. Use consulting layout: **Arial** hierarchy, teal top rule, cards, DRAFT +
+   citation footers, absolute callouts when % change is large on low baseline
+4. Run validate + thumbnail (or explicitly report soffice absence as QA gap)
 
 Default to the **8-slide physician MSL outline** in the test prompt above when
 the user asks for an MSL/physician deck. Otherwise use:
@@ -117,7 +172,7 @@ Medical vs commercial:
 | Title | Message | What the data show |
 | Safety | Buried | Same prominence as efficacy |
 | Citation | Optional | Every data slide |
-| Approval | Assumed | Stated |
+| Limitation | Assumed | Stated |
 
 Headline test: finding, not conclusion.
 Good: ORR 63% (single-arm, n=165). Bad: Substantial activity.
@@ -129,26 +184,72 @@ Palette (no `#` in pptxgenjs color strings):
 
 | Role | Hex | Use |
 |---|---|---|
-| Ink | 12283A | Titles, primary series |
+| Ink / Navy | 12283A | Titles, primary series |
 | Slate | 5B6B79 | Secondary, axes |
-| Teal | 0E7C7B | Single accent |
-| Gold | C89B3C | Sparse callouts |
-| Oxblood | 8C2F39 | Safety only |
-| Cloud | E8ECEF | Banding |
+| Teal | 0E7C7B | Single accent / top rule |
+| Muted teal | 5B9A98 | Secondary series |
+| Gold | C89B3C | Sparse callouts (absolute risk) |
+| Oxblood | 8C2F39 | Safety only / placebo caution series |
+| Cloud | E8ECEF | Banding / grid |
 | White | FFFFFF | Content background |
 
 One idea per slide. Margins at least 0.5 inch. Left-align body. No title
 underlines, no decorative sidebars, no cream backgrounds.
 
+### Charts (required) — editable first
+
+Any quantitative comparison slide (≥3 series **or** ≥3 categories) **MUST**
+show a real chart the user can edit — not bullets alone.
+
+**Priority (normative):**
+
+1. **Primary — native OOXML PowerPoint chart with embedded Excel**
+   - Use python-pptx `CategoryChartData` + `shapes.add_chart(...)` (or
+     pptxgenjs chart APIs). This writes `ppt/charts/chartN.xml` **and** an
+     embedded workbook under `ppt/embeddings/` so the user can open Edit Data
+     in PowerPoint / Excel and change series.
+   - Prefer clustered column for arm × endpoint matrices; use the palette
+     above (Placebo often oxblood `8C2F39`; active arms teal / muted teal /
+     navy).
+   - Call `scripts/add_editable_chart.py` (or equivalent inline that matches
+     it). Save the source table beside the run as CSV/JSON under artifacts.
+
+2. **Also allowed — SVG (or companion editable workbook)**
+   - Embed a crisp SVG figure if the toolchain supports it in the pptx, **or**
+     ship a companion `.xlsx` with the chart data next to the deck so the
+     user can rebuild/edit. Prefer native OOXML when both are possible.
+
+3. **Last resort only — matplotlib (Agg) → PNG → `add_picture`**
+   - Use **only** when native OOXML chart creation fails after install attempt.
+   - Still embed a real `ppt/media/imageN.png` at ≥200 DPI; keep fair-balance
+     text on-slide.
+   - **Say so in that slide’s speaker notes** (“Raster fallback: native
+     editable chart unavailable because …”).
+   - Raster PNGs are **not** a substitute when editable charts work.
+
+**Fair-balance text on every quantitative slide (required alongside the chart):**
+
+- Absolute values when % changes are large on low baselines
+- Explicit “CIs not reported” if absent
+- Show increases / non-monotonic arms honestly (do not drop inconvenient bars)
+- Missingness callouts
+- Post hoc / unpowered labels when applicable
+
+**Do not** ship quantitative claims as bullet lists alone when ≥3 series or
+≥3 categories exist.
+
 ### 5) Challenge
 
 - Citation + N + design on every data slide?
-- Safety prominence OK?
+- Safety prominence OK (dedicated slide)?
 - Any promotional titles?
 - Comparative claim without H2H?
 - Approval status stated?
 - Would it read the same for a competitor product?
 - DRAFT still on title?
+- Editable chart present on each quantitative results slide?
+- Speaker notes on all slides?
+- Absolute callout present when % change sits on a low baseline?
 
 ### 6) Deliver
 
@@ -162,6 +263,7 @@ eye-checked numbers, citation list), open gaps, DRAFT intact.
 | Task | Approach |
 |---|---|
 | Create | pptxgenjs or python-pptx |
+| Editable chart | `scripts/add_editable_chart.py` (OOXML + Excel embed) |
 | Edit | unzip, edit slide XML, zip |
 | Read | markitdown deck.pptx |
 | Thumbnails | python scripts/thumbnail.py deck.pptx prefix |
@@ -170,7 +272,8 @@ eye-checked numbers, citation list), open gaps, DRAFT intact.
 
 Gotchas:
 
-- Set layout before adding slides (default 16:9 = 10 x 5.625 in).
+- Set layout before adding slides (default widescreen 13.333 × 7.5 in for
+  physician decks; 10 × 5.625 also acceptable if consistent).
 - Hex without `#` or alpha digits.
 - Fresh options object per add call (library mutates in place).
 - Shadow offset >= 0. Use charSpacing not letterSpacing.
@@ -178,8 +281,10 @@ Gotchas:
 - One new pptxgen per file.
 - Stacked bar dataLabelPosition only ctr / inEnd / inBase.
 - Secondary-axis combos need both valAxes and catAxes (two entries each).
-- Validate after writeFile. Speaker notes via addNotes.
+- Validate after writeFile. Speaker notes via addNotes / `notes_slide`.
 - Use scripts/add_slide.py and scripts/clean.py — do not hand-copy slide parts.
+- After `add_chart`, style series fills to the palette; include a zero line
+  mentally in interpretation (axis crosses zero for signed % change).
 
 ---
 
@@ -189,3 +294,18 @@ Gotchas:
 - No hallucinated unread content
 - M2M structure + fair balance + real citations + DRAFT
 - Valid pptx or explicit degraded delivery with full content
+- **`ppt/charts/` contains ≥1 native chart** (with Excel embed under
+  `ppt/embeddings/`) for each quantitative results slide — **or** documented
+  last-resort PNG under `ppt/media/` with speaker-note explanation
+- `validate.py` passed (or noted if schemas missing)
+- Thumbnails generated **OR** soffice absence explicitly reported as QA gap
+- Speaker notes present on every slide
+- Content depth gates above satisfied for 8-slide physician decks
+
+---
+
+## House-rules override
+
+Files in `house-rules/` next to this skill **win** over defaults in this
+SKILL.md. Read them before build when present (especially
+`data-visualization-for-medical.md` and `consulting-grade-design.md`).
