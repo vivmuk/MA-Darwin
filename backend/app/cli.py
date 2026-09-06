@@ -33,6 +33,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override runs root (default: <repo>/runs)",
     )
+
+    extract = sub.add_parser(
+        "extract",
+        help="Extract claim ledger and numbers index for an existing run",
+    )
+    extract.add_argument("--run-id", required=True, help="Run id (run_xxxxxxxxxxxx)")
+    extract.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=None,
+        help="Override runs root (default: <repo>/runs)",
+    )
     return parser
 
 
@@ -60,11 +72,27 @@ def cmd_new_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_extract(args: argparse.Namespace) -> int:
+    from app.ingestion.ledger import extract_run
+
+    store = RunStore(root=args.runs_dir) if args.runs_dir else RunStore()
+    try:
+        ledger_path, index_path = extract_run(args.run_id, store=store)
+    except (KeyError, FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(ledger_path)
+    print(index_path, file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "new-run":
         return cmd_new_run(args)
+    if args.command == "extract":
+        return cmd_extract(args)
     parser.error(f"unknown command: {args.command}")
     return 2
 
