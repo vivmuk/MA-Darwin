@@ -1,4 +1,4 @@
-import { access, rename } from "node:fs/promises";
+import { access, cp, rm } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,20 +17,18 @@ async function exists(target) {
 }
 
 async function parkApiRoutes() {
-  if (await exists(apiDir)) {
-    if (await exists(parked)) {
-      await rename(parked, `${parked}.old-${Date.now()}`);
-    }
-    await rename(apiDir, parked);
-  }
+  if (!(await exists(apiDir))) return;
+  await rm(parked, { recursive: true, force: true });
+  await cp(apiDir, parked, { recursive: true });
+  await rm(apiDir, { recursive: true, force: true });
 }
 
 async function restoreApiRoutes() {
-  if (await exists(parked)) {
-    if (!(await exists(apiDir))) {
-      await rename(parked, apiDir);
-    }
+  if (!(await exists(parked))) return;
+  if (!(await exists(apiDir))) {
+    await cp(parked, apiDir, { recursive: true });
   }
+  await rm(parked, { recursive: true, force: true });
 }
 
 await parkApiRoutes();
