@@ -15,3 +15,9 @@ See [README.md](README.md) for how to write a good one.
   is not used at all.
 
 ## YOUR RULES — ADD BELOW THIS LINE
+
+- Speaker notes required on every slide.
+- Typography: Arial hierarchy (title > section eyebrow > body > footer).
+- Layout: teal top rule (`0E7C7B`), card structure, DRAFT + citation footers on data slides.
+- Absolute-risk callouts (gold border) when percent change is large on a low baseline.
+- Prefer editable OOXML charts (Excel-backed) on quantitative slides; do not ship text-only efficacy panels.
