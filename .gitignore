@@ -5,3 +5,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+runs/*
+!runs/.gitkeep
+*.sqlite3

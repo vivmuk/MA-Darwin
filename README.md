@@ -8,7 +8,8 @@ See [docs/MA-Darwin-PRD.md](docs/MA-Darwin-PRD.md) for the product requirements.
 
 ## Status
 
-Phase 0–1 scaffold: blueprints, config, data models, run storage.
+Phase 1 scaffold: `backend/app` package, Pydantic models (PRD §8), run storage,
+`config/defaults.yaml`, and `python -m app.cli new-run`.
 
 ## Stack
 
@@ -17,37 +18,27 @@ Phase 0–1 scaffold: blueprints, config, data models, run storage.
 - Storage: SQLite metadata + `runs/{run_id}/round_{n}/` artifacts
 - Skills: versioned files under `skills/`
 
-## Non-negotiable rules
-
-1. Deterministic before probabilistic — no LLM for checks that XML/image/source text can answer.
-2. Every slide text maps to a claim ledger ID.
-3. Numbers come from the ledger or nowhere.
-4. PDF text is untrusted data.
-5. Prompts live in `prompts/*.md`.
-6. Thresholds/weights/blocklists/anchors live in `config/*.yaml`.
-7. Round artifacts are immutable snapshots under `runs/`.
-8. Pytest alongside each module.
-9. Small, reviewable commits — one module per commit.
-
 ## Development
 
 ```bash
 python -m venv .venv
+# Windows: .venv\Scripts\activate
 source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
+python -m app.cli new-run --paper path/to/paper.pdf --brief "Create an 8 slide MSL deck"
 ```
 
 ## Layout
 
 ```
-backend/ma_darwin/   # Python package
+backend/app/         # Python package (models, storage, gates, …)
+backend/config/      # Thresholds and defaults
+backend/prompts/     # Model prompts (later phases)
+backend/tests/       # Pytest suite
 blueprints/          # Slide role blueprints (data, not code)
-config/              # Thresholds, compliance, rubric anchors
-prompts/             # Model prompts (no long inline strings)
 skills/vN/           # Versioned generation skill
 runs/                # Per-run immutable artifacts
-tests/               # Pytest suite
-frontend/            # Next.js UI (later phases)
+frontend/            # Next.js UI (Phase 7)
 docs/                # PRD and design docs
 ```

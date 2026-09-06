@@ -1,0 +1,27 @@
+# MA-Darwin default thresholds (PRD §§7, 10, 12).
+# Load via app.config — do not hardcode these values in Python.
+
+promotion_threshold: 3
+max_rounds: 6
+max_auto_rounds: 2
+judge_threshold: 75
+regression_tolerance: 2
+max_mutations_per_round: 2
+min_font_pt: 14
+min_contrast: 4.5
+
+# Additional defaults referenced by the PRD (kept configurable).
+judge_runs: 3
+judge_temperature: 0
+plateau_consecutive_rounds: 2
+plateau_min_improvement: 1.0
+credit_removal_threshold: -3
+stale_candidate_decks: 10
+render_dpi: 150
+max_font_families: 2
+max_colors: 5
+max_words_per_slide: 80
+max_bullets_per_slide: 6
+default_budget_usd: 25.0
+default_blueprint_id: msl_physician_8
+default_skill_version: v1
