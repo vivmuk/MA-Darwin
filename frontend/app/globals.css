@@ -81,3 +81,71 @@ body {
   background: #efe8d8;
   color: #1b1914;
 }
+
+.landing-poster {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(90deg, rgba(0, 109, 119, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(0, 109, 119, 0.06) 1px, transparent 1px),
+    #f7f4ea;
+  background-size: 28px 28px, 28px 28px, auto;
+  color: #173f3c;
+}
+
+.landing-poster__stage {
+  flex: 1;
+  width: min(100%, 1680px);
+  margin: 0 auto;
+  padding: 12px 12px 8px;
+}
+
+.landing-poster__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #f9f8f3;
+  border: 2px solid rgba(0, 109, 119, 0.28);
+  box-shadow: 6px 8px 0 #d6ded3;
+}
+
+.landing-poster__bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  border-top: 3px solid #006d77;
+  background: rgba(247, 244, 234, 0.96);
+}
+
+.landing-poster__demo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 36rem);
+  min-height: 4.5rem;
+  padding: 0 2rem;
+  border-radius: 8px;
+  background: #006d77;
+  color: #fffdf6;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+  box-shadow: 5px 7px 0 #d81b60;
+}
+
+.landing-poster__demo:hover {
+  transform: translateY(-2px);
+  background: #08565e;
+}
+
+.landing-poster__demo:focus-visible {
+  outline: 3px solid #d81b60;
+  outline-offset: 4px;
+}
