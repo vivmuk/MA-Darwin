@@ -4,8 +4,10 @@ MA-Darwin ships as **two Railway services**. Generate is async (start + SSE). Ve
 
 ## Backend service
 
-- Root: repo root
-- Builder: **Dockerfile** → `Dockerfile.backend`
+- Root: **repo root** (not `/backend` — `pyproject.toml`, skills, and blueprints live at the root)
+- Builder: **Dockerfile** → `Dockerfile.backend` (preferred; installs LibreOffice + fonts)
+- Fallback: if Railway uses **Railpack** instead of the Dockerfile, `railpack.json` supplies
+  `PYTHONPATH=backend uvicorn app.api.app:app --host 0.0.0.0 --port ${PORT:-8000}`
 - Required env:
   - `VENICE_API_KEY`
   - `VENICE_MODEL=claude-opus-4-8`

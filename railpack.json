@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "python",
+  "packages": {
+    "python": "3.12"
+  },
+  "deploy": {
+    "startCommand": "PYTHONPATH=backend uvicorn app.api.app:app --host 0.0.0.0 --port ${PORT:-8000}",
+    "variables": {
+      "PYTHONPATH": "backend",
+      "PYTHONUNBUFFERED": "1",
+      "MA_DARWIN_RELAX_FONTS": "1"
+    },
+    "aptPackages": [
+      "libreoffice-impress",
+      "fonts-liberation",
+      "fonts-crosextra-carlito",
+      "fonts-dejavu-core",
+      "poppler-utils",
+      "libcairo2",
+      "libpango-1.0-0",
+      "libpangocairo-1.0-0",
+      "libgdk-pixbuf-2.0-0"
+    ]
+  }
+}

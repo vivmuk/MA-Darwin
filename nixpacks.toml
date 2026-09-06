@@ -1,5 +1,6 @@
 # Used if the backend service is detected as a Python app without Dockerfile.
 # Prefer Dockerfile.backend on Railway so LibreOffice actually installs.
+# Railpack (Railway's current builder) reads railpack.json, not this file.
 
 [phases.setup]
 nixPkgs = ["python312", "libreoffice", "poppler_utils", "cairo", "pango"]
