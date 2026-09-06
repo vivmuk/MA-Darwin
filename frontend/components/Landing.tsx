@@ -7,7 +7,7 @@ export function Landing() {
         <h1 className="sr-only">MA-Darwin: How do skills evolve?</h1>
         <img
           className="landing-poster__image"
-          src="/ma-darwin-how-skills-evolve.png"
+          src="/ma-darwin-landing.png"
           alt="MA-DARWIN infographic: How do skills evolve? From simple rules to emergent behavior to selected, inheritable capability. Wolfram dynamics, the MA Darwin evolution engine, and evolving skill lineages."
         />
       </main>
