@@ -1,0 +1,39 @@
+# MA-Darwin thresholds — never hardcode these in Python.
+# Loaded via ma_darwin.config_loader.
+
+gate3:
+  pass_threshold: 75
+  judge_runs: 3
+  judge_temperature: 0
+
+rounds:
+  max_rounds: 6
+  max_auto_rounds: 2
+  plateau_consecutive_rounds: 2
+  plateau_min_improvement: 1.0
+
+render:
+  dpi: 150
+  required_fonts:
+    - Arial
+
+gate2:
+  min_body_font_pt: 14
+  max_font_families: 2
+  max_colors: 5
+  min_contrast_ratio: 4.5
+  max_words_per_slide: 80
+  max_bullets_per_slide: 6
+
+evolution:
+  promotion_threshold: 3
+  max_mutations_per_round: 2
+  credit_removal_threshold: -3
+  stale_candidate_decks: 10
+  regression_tolerance: 2.0
+  regression_set_size_min: 5
+  regression_set_size_max: 8
+
+cost:
+  # Placeholder budget in USD; enforce once token accounting lands.
+  default_budget_usd: 25.0

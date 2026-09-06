@@ -1,0 +1,73 @@
+{
+  "id": "msl_physician_8",
+  "name": "MSL physician deck (8 content slides)",
+  "deck_type": "msl_physician",
+  "slide_count": 8,
+  "description": "Eight content slides plus an always-appended references slide for medical-to-medical physician exchange.",
+  "slides": [
+    {
+      "role": "title",
+      "required_content": ["paper_title", "journal", "citation", "audience", "evidence_class"],
+      "allowed_evidence_classes": ["background", "design"],
+      "max_claims": 4,
+      "requires_visual": false
+    },
+    {
+      "role": "unmet_need",
+      "required_content": ["clinical_context", "unmet_need"],
+      "allowed_evidence_classes": ["background"],
+      "max_claims": 5,
+      "requires_visual": false
+    },
+    {
+      "role": "study_design",
+      "required_content": ["design_type", "N", "arms", "duration", "endpoints"],
+      "allowed_evidence_classes": ["design"],
+      "max_claims": 6,
+      "requires_visual": false
+    },
+    {
+      "role": "population",
+      "required_content": ["inclusion", "exclusion", "baseline_characteristics"],
+      "allowed_evidence_classes": ["design", "background"],
+      "max_claims": 6,
+      "requires_visual": false
+    },
+    {
+      "role": "primary_endpoint",
+      "required_content": ["primary_result", "CI_or_p", "design_N"],
+      "allowed_evidence_classes": ["primary_endpoint"],
+      "max_claims": 5,
+      "requires_visual": true
+    },
+    {
+      "role": "key_secondary",
+      "required_content": ["secondary_results_labelled"],
+      "allowed_evidence_classes": ["secondary_endpoint", "exploratory", "post_hoc"],
+      "max_claims": 6,
+      "requires_visual": false
+    },
+    {
+      "role": "safety",
+      "required_content": ["ae_profile", "discontinuations"],
+      "allowed_evidence_classes": ["safety"],
+      "max_claims": 6,
+      "requires_visual": false
+    },
+    {
+      "role": "limitations_relevance",
+      "required_content": ["limitations", "clinical_relevance"],
+      "allowed_evidence_classes": ["limitation", "background"],
+      "max_claims": 6,
+      "requires_visual": false
+    },
+    {
+      "role": "references",
+      "required_content": ["citations"],
+      "allowed_evidence_classes": ["background", "design", "primary_endpoint", "secondary_endpoint", "exploratory", "post_hoc", "safety", "limitation"],
+      "max_claims": 20,
+      "requires_visual": false,
+      "counts_against_slide_count": false
+    }
+  ]
+}

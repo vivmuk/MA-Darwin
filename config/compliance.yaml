@@ -1,0 +1,53 @@
+# Gate 1 content & compliance rules (deterministic).
+
+promotional_blocklist:
+  - "proven"
+  - "safe and effective"
+  - "best-in-class"
+  - "breakthrough"
+  - "guaranteed"
+
+claim_types:
+  - verbatim
+  - paraphrase
+  - synthesized
+
+evidence_classes:
+  - primary_endpoint
+  - secondary_endpoint
+  - exploratory
+  - post_hoc
+  - safety
+  - design
+  - background
+  - limitation
+
+# Labels that must appear when using non-primary evidence on content slides.
+endpoint_labels:
+  secondary_endpoint: "Secondary endpoint"
+  exploratory: "Exploratory"
+  post_hoc: "Post hoc"
+
+# Fair-balance roles that must be present and non-empty.
+required_fair_balance_roles:
+  - safety
+  - limitations_relevance
+
+# Comparative / superiority language blocked unless a primary_endpoint
+# claim from a head-to-head design supports it.
+comparative_language:
+  - "superior"
+  - "superiority"
+  - "outperformed"
+  - "better than"
+  - "versus placebo superiority"
+  - "more effective than"
+
+number_sweep:
+  # Relative tolerance for rounding / unit conversion matches.
+  relative_tolerance: 0.01
+  absolute_tolerance: 0.05
+
+synthesized_claims:
+  # Allowed with mandatory human approval (open decision #2 default).
+  require_human_approval: true
