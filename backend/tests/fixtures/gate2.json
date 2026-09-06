@@ -1,0 +1,44 @@
+{
+  "gate": "gate2",
+  "passed": false,
+  "checks": [
+    {
+      "name": "shape_bounds",
+      "passed": true,
+      "message": "All shapes within slide edges",
+      "flagged": false,
+      "locations": []
+    },
+    {
+      "name": "min_font_size",
+      "passed": false,
+      "message": "Body text below 14pt on slide 3",
+      "flagged": false,
+      "locations": [
+        {
+          "slide": 3,
+          "element_id": "tb_2",
+          "x": 72.0,
+          "y": 180.0,
+          "w": 400.0,
+          "h": 48.0,
+          "detail": "11pt run"
+        }
+      ]
+    },
+    {
+      "name": "contrast_ratio",
+      "passed": true,
+      "message": "All text meets 4.5:1",
+      "flagged": false,
+      "locations": []
+    },
+    {
+      "name": "density",
+      "passed": true,
+      "message": "Word and bullet counts within limits",
+      "flagged": false,
+      "locations": []
+    }
+  ]
+}

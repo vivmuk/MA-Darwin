@@ -1,0 +1,60 @@
+{
+  "paper_id": "demo_trial_2024",
+  "source_pages": 12,
+  "extracted_at": "2026-09-06T12:00:00+00:00",
+  "entries": [
+    {
+      "id": "C-001",
+      "text": "Randomized, double-blind, placebo-controlled trial in adults with HFrEF.",
+      "verbatim": "This was a randomized, double-blind, placebo-controlled trial in adults with HFrEF.",
+      "page": 2,
+      "section": "Methods",
+      "claim_type": "verbatim",
+      "evidence_class": "design",
+      "numbers": []
+    },
+    {
+      "id": "C-014",
+      "text": "Primary endpoint met with HR 0.78 (95% CI 0.68–0.90; p=0.001).",
+      "verbatim": "The primary endpoint was met (HR 0.78, 95% CI 0.68–0.90; p=0.001).",
+      "page": 4,
+      "section": "Results",
+      "claim_type": "verbatim",
+      "evidence_class": "primary_endpoint",
+      "numbers": [
+        {
+          "value": 0.78,
+          "unit": null,
+          "ci": "0.68–0.90",
+          "p_value": "0.001",
+          "raw": "HR 0.78"
+        },
+        {
+          "value": 0.001,
+          "unit": null,
+          "ci": null,
+          "p_value": "0.001",
+          "raw": "p=0.001"
+        }
+      ]
+    },
+    {
+      "id": "C-022",
+      "text": "Serious adverse events occurred in 18.2% of treated patients.",
+      "verbatim": "Serious adverse events occurred in 18.2% of patients in the treatment arm.",
+      "page": 7,
+      "section": "Safety",
+      "claim_type": "paraphrase",
+      "evidence_class": "safety",
+      "numbers": [
+        {
+          "value": 18.2,
+          "unit": "%",
+          "ci": null,
+          "p_value": null,
+          "raw": "18.2%"
+        }
+      ]
+    }
+  ]
+}

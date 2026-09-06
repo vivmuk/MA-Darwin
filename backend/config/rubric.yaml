@@ -1,0 +1,109 @@
+# Gate 3 vision-judge rubric. Anchors live here — never inline in prompts.
+# Loaded via gates.gate3_judge.load_rubric → models.rubric.Rubric.
+
+total_points: 100
+
+# Scored per slide; criterion charts_data_visualization may be N/A (weights renormalized).
+slide_criteria:
+  - id: visual_hierarchy
+    name: Visual hierarchy
+    weight: 15
+    scope: slide
+    anchors:
+      "0": "No clear focal point; titles, body, and accents compete equally."
+      "5": "Weak hierarchy; primary message is findable but not dominant."
+      "10": "Clear title → body → support order with one primary focal point."
+      "15": "Immediate focal point; secondary content recedes without confusion."
+
+  - id: layout_composition
+    name: Layout & composition
+    weight: 15
+    scope: slide
+    anchors:
+      "0": "Crowded or sparse with colliding elements; no grid discipline."
+      "5": "Partial alignment; uneven gaps; some overlapping or orphaned shapes."
+      "10": "Consistent margins and columns; elements aligned to a simple grid."
+      "15": "Balanced composition with intentional whitespace and no collisions."
+
+  - id: information_density
+    name: Information density
+    weight: 10
+    scope: slide
+    anchors:
+      "0": "Wall of text or near-empty; density fights comprehension."
+      "4": "Too dense or too thin; scannability suffers."
+      "7": "Readable density for an MSL exchange; most content scannable."
+      "10": "Tight, purposeful density; every element earns its space."
+
+  - id: typography
+    name: Typography
+    weight: 10
+    scope: slide
+    anchors:
+      "0": "Illegible sizes, mixed families, or decorative misuse."
+      "4": "Readable but inconsistent sizes/weights; weak type system."
+      "7": "Consistent type scale; ≤2 families; adequate body size."
+      "10": "Precise type hierarchy; professional medical-affairs polish."
+
+  - id: visual_storytelling
+    name: Visual storytelling
+    weight: 15
+    scope: slide
+    anchors:
+      "0": "Slide does not communicate a takeaway; reader must invent the story."
+      "5": "Partial narrative; takeaway buried or ambiguous."
+      "10": "Clear takeaway supported by layout and content order."
+      "15": "Single crisp story beat; physician can restate the point immediately."
+
+  - id: charts_data_visualization
+    name: Charts & data visualization
+    weight: 10
+    scope: slide
+    na_when: no_data_visual
+    anchors:
+      "0": "Chart missing, distorted, or mislabelled; numbers hard to trust."
+      "4": "Chart present but hard to read; missing units/CIs or poor encoding."
+      "7": "Clear encoding with labels; minor polish issues."
+      "10": "Editable, accurate, labelled chart; absolute risks/CIs readable."
+
+  - id: colour_contrast
+    name: Colour & contrast
+    weight: 8
+    scope: slide
+    anchors:
+      "0": "Fails contrast; decorative colour noise; safety colour misuse."
+      "3": "Mostly readable; occasional low-contrast or inconsistent accents."
+      "6": "Meets contrast; restrained palette; safety colour reserved correctly."
+      "8": "High-contrast, disciplined palette with intentional emphasis only."
+
+  - id: professional_polish
+    name: Professional polish
+    weight: 5
+    scope: slide
+    anchors:
+      "0": "Placeholder look; typos; uneven spacing; unfinished elements."
+      "2": "Mostly finished with visible rough edges."
+      "4": "Clean finish suitable for internal scientific exchange review."
+      "5": "Publication-ready polish for MSL draft review."
+
+# Scored once on a contact sheet of all slides (deck-level).
+deck_criteria:
+  - id: consistency_design_system
+    name: Consistency / design system
+    weight: 7
+    scope: deck
+    anchors:
+      "0": "Each slide looks unrelated; no shared grid, type, or colour system."
+      "3": "Partial consistency; several slides break the system."
+      "5": "Most slides share layout, type, and colour conventions."
+      "7": "Cohesive deck system; deviations are intentional and rare."
+
+  - id: executive_premium_feel
+    name: Executive / premium feel
+    weight: 5
+    scope: deck
+    anchors:
+      "0": "Amateur template fill; not credible for physician exchange."
+      "2": "Acceptable but generic; lacks confidence."
+      "4": "Credible medical-affairs draft aesthetic."
+      "5": "Premium consulting-grade presence without promotional gloss."

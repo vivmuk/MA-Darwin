@@ -1,0 +1,81 @@
+{
+  "gate": "gate3",
+  "deck_score": 82.0,
+  "worst_slide_score": 70.0,
+  "slide_scores": [
+    {"slide": 1, "score": 90.0},
+    {"slide": 2, "score": 84.0},
+    {"slide": 3, "score": 70.0},
+    {"slide": 4, "score": 84.0}
+  ],
+  "slide_results": [
+    {
+      "slide": 3,
+      "role": "primary_endpoint",
+      "score": 70.0,
+      "criteria": [
+        {
+          "criterion": "visual_hierarchy",
+          "weight": 15,
+          "score": 10,
+          "rationale": "Title competes with chart labels.",
+          "coordinates": {"x": 0.42, "y": 0.18, "w": null, "h": null},
+          "scope": "slide",
+          "slide": 3
+        },
+        {
+          "criterion": "charts_data_visualization",
+          "weight": 10,
+          "score": 7,
+          "rationale": "CI readable; axis units slightly small.",
+          "coordinates": null,
+          "scope": "slide",
+          "slide": 3
+        }
+      ]
+    }
+  ],
+  "deck_criteria": [
+    {
+      "criterion": "consistency_design_system",
+      "weight": 7,
+      "score": 5,
+      "rationale": "Most slides share margins and type scale.",
+      "coordinates": null,
+      "scope": "deck",
+      "slide": null
+    },
+    {
+      "criterion": "executive_premium_feel",
+      "weight": 5,
+      "score": 4,
+      "rationale": "Credible medical-affairs draft aesthetic.",
+      "coordinates": null,
+      "scope": "deck",
+      "slide": null
+    }
+  ],
+  "criteria": [
+    {
+      "criterion": "visual_hierarchy",
+      "weight": 15,
+      "score": 10,
+      "rationale": "Title competes with chart labels.",
+      "coordinates": {"x": 0.42, "y": 0.18, "w": null, "h": null},
+      "scope": "slide",
+      "slide": 3
+    },
+    {
+      "criterion": "consistency_design_system",
+      "weight": 7,
+      "score": 5,
+      "rationale": "Most slides share margins and type scale.",
+      "coordinates": null,
+      "scope": "deck",
+      "slide": null
+    }
+  ],
+  "passed": true,
+  "judge_runs": 3,
+  "temperature": 0.0
+}

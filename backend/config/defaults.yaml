@@ -22,6 +22,10 @@ max_font_families: 2
 max_colors: 5
 max_words_per_slide: 80
 max_bullets_per_slide: 6
+image_aspect_tolerance: 0.02
+alignment_max_x_clusters: 4
 default_budget_usd: 25.0
 default_blueprint_id: msl_physician_8
 default_skill_version: v1
+regression_set_size_min: 5
+regression_set_size_max: 8

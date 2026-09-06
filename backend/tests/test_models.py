@@ -12,11 +12,11 @@ from app.models import (
     ClaimLedgerEntry,
     ClaimType,
     EvidenceClass,
+    Gate1Result,
     GateCheckResult,
-    GateResult,
+    Gate3Result,
     HumanComment,
     JudgeCriterionScore,
-    JudgeScore,
     NumberValue,
     Round,
     Run,
@@ -26,6 +26,7 @@ from app.models import (
     SkillRule,
     SkillRuleSection,
     SlideMapEntry,
+    SlideScoreSummary,
 )
 
 
@@ -93,15 +94,18 @@ def test_human_comment_and_skill_rule() -> None:
 
 
 def test_run_and_round_with_gates() -> None:
-    gate1 = GateResult(
+    gate1 = Gate1Result(
         gate="gate1",
         passed=True,
         checks=[GateCheckResult(name="claim_mapping", passed=True)],
     )
-    gate3 = JudgeScore(
+    gate3 = Gate3Result(
         deck_score=82.0,
         worst_slide_score=70.0,
-        slide_scores={1: 90.0, 2: 70.0},
+        slide_scores=[
+            SlideScoreSummary(slide=1, score=90.0),
+            SlideScoreSummary(slide=2, score=70.0),
+        ],
         criteria=[
             JudgeCriterionScore(
                 criterion="visual_hierarchy",
@@ -119,8 +123,6 @@ def test_run_and_round_with_gates() -> None:
         gate1=gate1,
         gate2=None,
         gate3=gate3,
-        human={},
-        mutations=[],
         locked_slides=[1],
     )
     run = Run(

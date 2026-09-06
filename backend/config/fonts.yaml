@@ -1,0 +1,15 @@
+# Required fonts for the render environment (PRD §7.5).
+# font_check.py fails loudly on startup if any are missing.
+
+required_fonts:
+  - Arial
+  - Calibri
+
+# Optional fallbacks consulted only for diagnostics — never silently substituted.
+fallback_fonts: []
+
+# Where to look when enumerating installed fonts (platform-specific loaders may ignore).
+search_paths:
+  - C:/Windows/Fonts
+  - /usr/share/fonts
+  - /Library/Fonts

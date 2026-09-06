@@ -1,0 +1,967 @@
+openapi: 3.1.0
+info:
+  title: MA-Darwin API
+  version: 0.1.0
+  description: |
+    Contract for the MA-Darwin backend (PRD §9 Zone B + Prompt 6).
+    Frontend may be built against this file before the FastAPI app exists.
+servers:
+  - url: http://localhost:8000
+    description: Local development
+tags:
+  - name: runs
+  - name: rounds
+  - name: events
+  - name: export
+  - name: skills
+
+paths:
+  /health:
+    get:
+      tags: [runs]
+      summary: Liveness probe
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /runs:
+    post:
+      tags: [runs]
+      summary: Create a run from an uploaded PDF and freeform brief
+      operationId: createRun
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [pdf, brief]
+              properties:
+                pdf:
+                  type: string
+                  format: binary
+                  description: Research paper PDF
+                brief:
+                  type: string
+                  description: Freeform generation brief
+                blueprint_id:
+                  type: string
+                  default: msl_physician_8
+                skill_version:
+                  type: string
+                  default: v1
+                budget_usd:
+                  type: number
+                  format: float
+                  default: 25.0
+      responses:
+        "201":
+          description: Run created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateRunResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /runs/{run_id}:
+    get:
+      tags: [runs]
+      summary: Get run metadata and round summaries
+      operationId: getRun
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Run record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs/{run_id}/parse-brief:
+    post:
+      tags: [runs]
+      summary: Parse freeform brief into editable structured fields
+      operationId: parseBrief
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParseBriefRequest"
+      responses:
+        "200":
+          description: Parsed brief for user confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brief"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs/{run_id}/brief:
+    put:
+      tags: [runs]
+      summary: Confirm / edit structured brief before start
+      operationId: updateBrief
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Brief"
+      responses:
+        "200":
+          description: Updated brief
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brief"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs/{run_id}/start:
+    post:
+      tags: [runs]
+      summary: Kick off round 1 (ingestion + generate + render + gates)
+      operationId: startRun
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "202":
+          description: Round started; subscribe to SSE for progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartRunResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /runs/{run_id}/events:
+    get:
+      tags: [events]
+      summary: SSE stream of real progress milestones
+      operationId: streamRunEvents
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: |
+            text/event-stream of ProgressEvent payloads.
+            Each SSE `data:` line is a JSON ProgressEvent. `event:` name matches ProgressEvent.event.
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/ProgressEvent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs/{run_id}/rounds/{round_n}:
+    get:
+      tags: [rounds]
+      summary: Full round state including image URLs and gate reports
+      operationId: getRound
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/RoundN"
+      responses:
+        "200":
+          description: Round detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoundDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs/{run_id}/rounds/{round_n}/comments:
+    post:
+      tags: [rounds]
+      summary: Add human review comments (pins)
+      operationId: addComments
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/RoundN"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCommentsRequest"
+      responses:
+        "200":
+          description: Updated comments list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentsFile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs/{run_id}/rounds/{round_n}/lock:
+    post:
+      tags: [rounds]
+      summary: Lock or unlock slides
+      operationId: lockSlides
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/RoundN"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockSlidesRequest"
+      responses:
+        "200":
+          description: Updated locked slide list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LockSlidesResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs/{run_id}/rounds/{round_n}/overrides:
+    post:
+      tags: [rounds]
+      summary: Override a Gate 3 criterion score (stores delta)
+      operationId: overrideScore
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/RoundN"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScoreOverride"
+      responses:
+        "200":
+          description: Recorded override
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreOverride"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /runs/{run_id}/reiterate:
+    post:
+      tags: [runs]
+      summary: Start the next round after human review
+      operationId: reiterateRun
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "202":
+          description: Next round started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartRunResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /runs/{run_id}/export:
+    get:
+      tags: [export]
+      summary: Download export bundle zip
+      operationId: exportRun
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: round_n
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+          description: Round to export; defaults to best_round_n
+      responses:
+        "200":
+          description: Zip bundle
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        "403":
+          description: Export preconditions not met
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /skills/{version}/activate:
+    post:
+      tags: [skills]
+      summary: Activate a prior skill version (rollback)
+      operationId: activateSkillVersion
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            example: v1
+      responses:
+        "200":
+          description: Skill version activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivateSkillResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  parameters:
+    RunId:
+      name: run_id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^run_[0-9a-f]{12}$"
+        example: run_abcdef012345
+    RoundN:
+      name: round_n
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Illegal state transition
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+
+    CreateRunResponse:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: string
+        status:
+          $ref: "#/components/schemas/RunStatus"
+        paper_id:
+          type: string
+        blueprint_id:
+          type: string
+        skill_version:
+          type: string
+
+    StartRunResponse:
+      type: object
+      required: [run_id, round_n, status]
+      properties:
+        run_id:
+          type: string
+        round_n:
+          type: integer
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/RunStatus"
+        events_url:
+          type: string
+          format: uri
+          description: SSE endpoint for this run
+
+    ActivateSkillResponse:
+      type: object
+      required: [version, path]
+      properties:
+        version:
+          type: string
+        path:
+          type: string
+
+    RunStatus:
+      type: string
+      enum: [created, running, awaiting_review, complete, failed, plateau]
+
+    DeckType:
+      type: string
+      enum: [msl_physician]
+
+    Brief:
+      type: object
+      required: [slide_count, deck_type, audience, purpose]
+      properties:
+        slide_count:
+          type: integer
+          minimum: 1
+          default: 8
+        deck_type:
+          $ref: "#/components/schemas/DeckType"
+        audience:
+          type: string
+        purpose:
+          type: string
+        notes:
+          type: string
+          default: ""
+
+    ParseBriefRequest:
+      type: object
+      properties:
+        brief:
+          type: string
+          description: Override freeform brief; defaults to run brief_text
+
+    Run:
+      type: object
+      required: [id, paper_id, brief, blueprint_id, skill_version, status, rounds]
+      properties:
+        id:
+          type: string
+        paper_id:
+          type: string
+        brief:
+          $ref: "#/components/schemas/Brief"
+        brief_text:
+          type: string
+        blueprint_id:
+          type: string
+        skill_version:
+          type: string
+        status:
+          $ref: "#/components/schemas/RunStatus"
+        rounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoundSummary"
+        best_round_n:
+          type: integer
+          nullable: true
+        budget_usd:
+          type: number
+        auto_rounds_used:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RoundSummary:
+      type: object
+      required: [n]
+      properties:
+        n:
+          type: integer
+        deck_score:
+          type: number
+          nullable: true
+        gate1_passed:
+          type: boolean
+          nullable: true
+        gate2_passed:
+          type: boolean
+          nullable: true
+        locked_slides:
+          type: array
+          items:
+            type: integer
+
+    RoundDetail:
+      type: object
+      required: [n, slide_images, locked_slides, comments]
+      properties:
+        n:
+          type: integer
+        deck_path:
+          type: string
+          nullable: true
+        slide_images:
+          type: array
+          items:
+            type: string
+            format: uri
+            description: Absolute or API-relative URL to slide PNG
+        gate1:
+          $ref: "#/components/schemas/Gate1Result"
+        gate2:
+          $ref: "#/components/schemas/Gate2Result"
+        gate3:
+          $ref: "#/components/schemas/Gate3Result"
+        human:
+          $ref: "#/components/schemas/HumanReviewState"
+        mutations:
+          type: array
+          items:
+            $ref: "#/components/schemas/MutationRecord"
+        locked_slides:
+          type: array
+          items:
+            type: integer
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/HumanComment"
+        cost_usd:
+          type: number
+        token_count:
+          type: integer
+        slide_map:
+          $ref: "#/components/schemas/SlideMap"
+
+    GateCheckResult:
+      type: object
+      required: [name, passed]
+      properties:
+        name:
+          type: string
+        passed:
+          type: boolean
+        message:
+          type: string
+        flagged:
+          type: boolean
+          default: false
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CheckLocation"
+
+    CheckLocation:
+      type: object
+      required: [slide]
+      properties:
+        slide:
+          type: integer
+          minimum: 1
+        element_id:
+          type: string
+          nullable: true
+        x:
+          type: number
+          nullable: true
+        y:
+          type: number
+          nullable: true
+        w:
+          type: number
+          nullable: true
+        h:
+          type: number
+          nullable: true
+        detail:
+          type: string
+
+    Gate1Result:
+      type: object
+      required: [gate, passed, checks]
+      properties:
+        gate:
+          type: string
+          enum: [gate1]
+        passed:
+          type: boolean
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/GateCheckResult"
+
+    Gate2Result:
+      type: object
+      required: [gate, passed, checks]
+      properties:
+        gate:
+          type: string
+          enum: [gate2]
+        passed:
+          type: boolean
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/GateCheckResult"
+
+    IssueCoordinates:
+      type: object
+      required: [x, y]
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        w:
+          type: number
+          nullable: true
+        h:
+          type: number
+          nullable: true
+
+    JudgeCriterionScore:
+      type: object
+      required: [criterion, weight]
+      properties:
+        criterion:
+          type: string
+        weight:
+          type: number
+        score:
+          type: number
+          nullable: true
+          description: null when N/A
+        rationale:
+          type: string
+        coordinates:
+          $ref: "#/components/schemas/IssueCoordinates"
+        scope:
+          type: string
+          enum: [slide, deck]
+          default: slide
+        slide:
+          type: integer
+          nullable: true
+
+    SlideScoreSummary:
+      type: object
+      required: [slide, score]
+      properties:
+        slide:
+          type: integer
+        score:
+          type: number
+
+    SlideJudgeResult:
+      type: object
+      required: [slide, role, score]
+      properties:
+        slide:
+          type: integer
+        role:
+          type: string
+        score:
+          type: number
+        criteria:
+          type: array
+          items:
+            $ref: "#/components/schemas/JudgeCriterionScore"
+
+    Gate3Result:
+      type: object
+      required: [gate, deck_score, worst_slide_score, passed]
+      properties:
+        gate:
+          type: string
+          enum: [gate3]
+        deck_score:
+          type: number
+        worst_slide_score:
+          type: number
+        slide_scores:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlideScoreSummary"
+        slide_results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlideJudgeResult"
+        deck_criteria:
+          type: array
+          items:
+            $ref: "#/components/schemas/JudgeCriterionScore"
+        criteria:
+          type: array
+          items:
+            $ref: "#/components/schemas/JudgeCriterionScore"
+        passed:
+          type: boolean
+        judge_runs:
+          type: integer
+          default: 3
+        temperature:
+          type: number
+          default: 0
+
+    Severity:
+      type: string
+      enum: [must-fix, nice-to-have]
+
+    Scope:
+      type: string
+      enum: [this-deck-only, always]
+
+    HumanComment:
+      type: object
+      required: [id, slide, x, y, text, severity, criterion_tag, scope]
+      properties:
+        id:
+          type: string
+        slide:
+          type: integer
+          minimum: 1
+        x:
+          type: number
+        y:
+          type: number
+        text:
+          type: string
+        severity:
+          $ref: "#/components/schemas/Severity"
+        criterion_tag:
+          type: string
+        scope:
+          $ref: "#/components/schemas/Scope"
+
+    CommentsFile:
+      type: object
+      required: [run_id, round_n, comments]
+      properties:
+        run_id:
+          type: string
+        round_n:
+          type: integer
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/HumanComment"
+
+    AddCommentsRequest:
+      type: object
+      required: [comments]
+      properties:
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/HumanComment"
+
+    LockSlidesRequest:
+      type: object
+      required: [slides, locked]
+      properties:
+        slides:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+        locked:
+          type: boolean
+          description: true to lock, false to unlock
+
+    LockSlidesResponse:
+      type: object
+      required: [locked_slides]
+      properties:
+        locked_slides:
+          type: array
+          items:
+            type: integer
+
+    ScoreOverride:
+      type: object
+      required: [criterion, original_score, override_score, delta]
+      properties:
+        criterion:
+          type: string
+        slide:
+          type: integer
+          nullable: true
+        original_score:
+          type: number
+        override_score:
+          type: number
+        delta:
+          type: number
+        rationale:
+          type: string
+
+    HumanReviewState:
+      type: object
+      properties:
+        approved_slides:
+          type: array
+          items:
+            type: integer
+        score_overrides:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoreOverride"
+        synthesized_approvals:
+          type: array
+          items:
+            type: string
+
+    MutationKind:
+      type: string
+      enum: [one_off, candidate, promotion, rollback, rejection]
+
+    MutationRecord:
+      type: object
+      required: [id, kind, text]
+      properties:
+        id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/MutationKind"
+        text:
+          type: string
+        origin_comment_id:
+          type: string
+          nullable: true
+        rule_id:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+    SlideMapEntry:
+      type: object
+      required: [slide, element_id, text, claim_ids]
+      properties:
+        slide:
+          type: integer
+        element_id:
+          type: string
+        text:
+          type: string
+        claim_ids:
+          type: array
+          items:
+            type: string
+
+    SlideMap:
+      type: object
+      required: [entries]
+      properties:
+        deck_path:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlideMapEntry"
+
+    ProgressEventType:
+      type: string
+      enum:
+        - pages_parsed
+        - claims_extracted
+        - figures_extracted
+        - blueprint_slot_filled
+        - rendering
+        - gate1_complete
+        - gate2_complete
+        - judging_slide
+        - round_complete
+        - awaiting_review
+        - plateau
+        - error
+        - heartbeat
+
+    ProgressEvent:
+      type: object
+      required: [event, run_id, message, timestamp, elapsed_ms, token_count, cost_usd]
+      description: |
+        SSE payload. Wire format:
+
+            event: pages_parsed
+            data: {"event":"pages_parsed","run_id":"run_…","message":"Parsed 14 pages",…}
+
+        Only real milestones are emitted — no fake spinners.
+      properties:
+        event:
+          $ref: "#/components/schemas/ProgressEventType"
+        run_id:
+          type: string
+        round_n:
+          type: integer
+          nullable: true
+        message:
+          type: string
+          examples:
+            - Parsed 14 pages
+            - Extracted 47 claims
+            - Extracted 4 figures
+            - Filling blueprint 3/9
+            - Rendering
+            - Gate 1: 2 flags
+            - Judging slide 6/9
+        timestamp:
+          type: string
+          format: date-time
+        elapsed_ms:
+          type: integer
+          minimum: 0
+        token_count:
+          type: integer
+          minimum: 0
+        cost_usd:
+          type: number
+        pages:
+          type: integer
+          nullable: true
+        claims:
+          type: integer
+          nullable: true
+        figures:
+          type: integer
+          nullable: true
+        slot:
+          type: integer
+          nullable: true
+        slot_total:
+          type: integer
+          nullable: true
+        gate_flags:
+          type: integer
+          nullable: true
+        slide:
+          type: integer
+          nullable: true
+        slide_total:
+          type: integer
+          nullable: true

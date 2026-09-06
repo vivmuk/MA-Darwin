@@ -1,31 +1,123 @@
-"""Pydantic data models matching PRD section 8."""
+"""Pydantic data models matching PRD section 8 and frozen artifact contracts."""
 
 from __future__ import annotations
 
-from app.models.claim import ClaimLedgerEntry, ClaimType, EvidenceClass, NumberValue
-from app.models.gates import GateCheckResult, GateResult, JudgeCriterionScore, JudgeScore
-from app.models.run import Brief, DeckType, Round, Run, RunStatus
-from app.models.skill import SkillRule, SkillRuleSection
-from app.models.slide import HumanComment, Scope, Severity, SlideMapEntry
+from app.models.blueprint import Blueprint, BlueprintSlide
+from app.models.claim import ClaimLedger, ClaimLedgerEntry, ClaimType, EvidenceClass, NumberValue
+from app.models.common import BoundingBox, CheckLocation, IssueCoordinates
+from app.models.document import ExtractedAsset, PageText, ParsedDocument
+from app.models.gates import (
+    Gate1Result,
+    Gate2Result,
+    Gate3Result,
+    GateCheckResult,
+    GateResult,
+    JudgeCriterionScore,
+    JudgeScore,
+    SlideJudgeResult,
+    SlideScoreSummary,
+)
+from app.models.numbers import NumberIndexEntry, NumbersIndex
+from app.models.rubric import Rubric, RubricCriterion
+from app.models.run import (
+    Brief,
+    CreditUpdate,
+    DeckType,
+    ExportBundleResult,
+    FeedbackTier,
+    GenerationResult,
+    HumanReviewState,
+    MutationKind,
+    MutationRecord,
+    ProgressEvent,
+    ProgressEventType,
+    PromotionDecision,
+    PromotionResult,
+    RegressionReport,
+    RenderResult,
+    Round,
+    RoutedFeedback,
+    Run,
+    RunManifest,
+    RunStatus,
+    ScoreOverride,
+    StoppingDecision,
+    StoppingReason,
+)
+from app.models.skill import CandidateEvidence, CandidateRule, SkillRule, SkillRuleSection
+from app.models.slide import (
+    CommentsFile,
+    HumanComment,
+    Scope,
+    Severity,
+    SlideMap,
+    SlideMapEntry,
+    SlidePlan,
+    SlidePlanFigure,
+    SlidePlanSlide,
+)
 
 __all__ = [
+    "Blueprint",
+    "BlueprintSlide",
+    "BoundingBox",
     "Brief",
+    "CandidateEvidence",
+    "CandidateRule",
+    "CheckLocation",
+    "ClaimLedger",
     "ClaimLedgerEntry",
     "ClaimType",
+    "CommentsFile",
+    "CreditUpdate",
     "DeckType",
     "EvidenceClass",
+    "ExportBundleResult",
+    "ExtractedAsset",
+    "FeedbackTier",
+    "Gate1Result",
+    "Gate2Result",
+    "Gate3Result",
     "GateCheckResult",
     "GateResult",
+    "GenerationResult",
     "HumanComment",
+    "HumanReviewState",
+    "IssueCoordinates",
     "JudgeCriterionScore",
     "JudgeScore",
+    "MutationKind",
+    "MutationRecord",
+    "NumberIndexEntry",
     "NumberValue",
+    "NumbersIndex",
+    "PageText",
+    "ParsedDocument",
+    "ProgressEvent",
+    "ProgressEventType",
+    "PromotionDecision",
+    "PromotionResult",
+    "RegressionReport",
+    "RenderResult",
     "Round",
+    "RoutedFeedback",
+    "Rubric",
+    "RubricCriterion",
     "Run",
+    "RunManifest",
     "RunStatus",
     "Scope",
+    "ScoreOverride",
     "Severity",
     "SkillRule",
     "SkillRuleSection",
+    "SlideJudgeResult",
+    "SlideMap",
     "SlideMapEntry",
+    "SlidePlan",
+    "SlidePlanFigure",
+    "SlidePlanSlide",
+    "SlideScoreSummary",
+    "StoppingDecision",
+    "StoppingReason",
 ]

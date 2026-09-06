@@ -1,0 +1,48 @@
+{
+  "gate": "gate1",
+  "passed": true,
+  "checks": [
+    {
+      "name": "claim_mapping",
+      "passed": true,
+      "message": "All text runs mapped to claim IDs",
+      "flagged": false,
+      "locations": []
+    },
+    {
+      "name": "number_sweep",
+      "passed": true,
+      "message": "All numerals found in numbers_index",
+      "flagged": false,
+      "locations": []
+    },
+    {
+      "name": "endpoint_labelling",
+      "passed": true,
+      "message": "No secondary/exploratory/post-hoc claims on deck",
+      "flagged": false,
+      "locations": []
+    },
+    {
+      "name": "fair_balance",
+      "passed": true,
+      "message": "Safety and limitations roles present",
+      "flagged": false,
+      "locations": []
+    },
+    {
+      "name": "promotional_language",
+      "passed": true,
+      "message": "No blocklist terms",
+      "flagged": false,
+      "locations": []
+    },
+    {
+      "name": "synthesized_flags",
+      "passed": true,
+      "message": "No synthesized claims",
+      "flagged": false,
+      "locations": []
+    }
+  ]
+}

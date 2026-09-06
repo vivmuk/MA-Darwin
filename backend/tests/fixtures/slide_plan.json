@@ -1,0 +1,48 @@
+{
+  "blueprint_id": "msl_physician_8",
+  "skill_version": "v1",
+  "slides": [
+    {
+      "slide": 1,
+      "role": "title",
+      "headline": "Demo Trial 2024 — HFrEF outcomes",
+      "claim_ids": ["C-001"],
+      "figures": [],
+      "speaker_notes": "C-001 p.2",
+      "required_content_filled": ["paper_title", "audience"]
+    },
+    {
+      "slide": 2,
+      "role": "study_design",
+      "headline": "Randomized, double-blind design (N=420)",
+      "claim_ids": ["C-001"],
+      "figures": [],
+      "speaker_notes": "C-001 p.2",
+      "required_content_filled": ["design_type", "N"]
+    },
+    {
+      "slide": 3,
+      "role": "primary_endpoint",
+      "headline": "Primary endpoint met — HR 0.78",
+      "claim_ids": ["C-014"],
+      "figures": [
+        {
+          "asset_id": "fig_2",
+          "caption": "Kaplan–Meier primary endpoint",
+          "page": 4
+        }
+      ],
+      "speaker_notes": "C-014 p.4",
+      "required_content_filled": ["primary_result", "CI_or_p"]
+    },
+    {
+      "slide": 4,
+      "role": "safety",
+      "headline": "Serious AEs in 18.2% of treated patients",
+      "claim_ids": ["C-022"],
+      "figures": [],
+      "speaker_notes": "C-022 p.7",
+      "required_content_filled": ["ae_profile"]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "paper_id": "demo_trial_2024",
+  "extracted_at": "2026-09-06T12:00:00+00:00",
+  "numbers": [
+    {
+      "raw": "N=420",
+      "value": 420.0,
+      "unit": null,
+      "page": 2,
+      "sentence": "A total of N=420 patients were randomized 1:1.",
+      "char_start": 11,
+      "char_end": 16
+    },
+    {
+      "raw": "0.78",
+      "value": 0.78,
+      "unit": null,
+      "page": 4,
+      "sentence": "The primary endpoint was met (HR 0.78, 95% CI 0.68–0.90; p=0.001).",
+      "char_start": 36,
+      "char_end": 40
+    },
+    {
+      "raw": "0.001",
+      "value": 0.001,
+      "unit": null,
+      "page": 4,
+      "sentence": "The primary endpoint was met (HR 0.78, 95% CI 0.68–0.90; p=0.001).",
+      "char_start": 58,
+      "char_end": 63
+    },
+    {
+      "raw": "18.2%",
+      "value": 18.2,
+      "unit": "%",
+      "page": 7,
+      "sentence": "Serious adverse events occurred in 18.2% of patients in the treatment arm.",
+      "char_start": 34,
+      "char_end": 39
+    }
+  ]
+}

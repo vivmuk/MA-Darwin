@@ -51,3 +51,9 @@ number_sweep:
 synthesized_claims:
   # Allowed with mandatory human approval (open decision #2 default).
   require_human_approval: true
+
+# Population extrapolation: phrases that suggest over-generalization.
+population_extrapolation_patterns:
+  - "all patients"
+  - "everyone with"
+  - "in the general population"

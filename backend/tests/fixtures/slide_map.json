@@ -1,0 +1,23 @@
+{
+  "deck_path": "round_1/deck.pptx",
+  "entries": [
+    {
+      "slide": 1,
+      "element_id": "tb_title",
+      "text": "Demo Trial 2024 — HFrEF outcomes",
+      "claim_ids": ["C-001"]
+    },
+    {
+      "slide": 3,
+      "element_id": "tb_2",
+      "text": "Primary endpoint met — HR 0.78 (95% CI 0.68–0.90; p=0.001)",
+      "claim_ids": ["C-014"]
+    },
+    {
+      "slide": 4,
+      "element_id": "tb_1",
+      "text": "Serious adverse events: 18.2%",
+      "claim_ids": ["C-022"]
+    }
+  ]
+}

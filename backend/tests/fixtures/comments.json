@@ -1,0 +1,26 @@
+{
+  "run_id": "run_abcdef012345",
+  "round_n": 1,
+  "comments": [
+    {
+      "id": "hc_1",
+      "slide": 3,
+      "x": 0.4,
+      "y": 0.55,
+      "text": "Tighten bullets under the primary result; max 5 bullets.",
+      "severity": "must-fix",
+      "criterion_tag": "information_density",
+      "scope": "always"
+    },
+    {
+      "id": "hc_2",
+      "slide": 4,
+      "x": 0.2,
+      "y": 0.3,
+      "text": "Move SAE rate closer to the AE table for this deck only.",
+      "severity": "nice-to-have",
+      "criterion_tag": "layout_composition",
+      "scope": "this-deck-only"
+    }
+  ]
+}
