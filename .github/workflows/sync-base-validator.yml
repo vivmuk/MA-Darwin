@@ -1,0 +1,20 @@
+name: sync-base-validator
+on:
+  workflow_dispatch:
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and commit base.py
+        run: |
+          mkdir -p skills/sundai-powerpoint/scripts/office/validators
+          curl -fsSL -o skills/sundai-powerpoint/scripts/office/validators/base.py \
+            https://raw.githubusercontent.com/anthropics/skills/main/skills/pptx/scripts/office/validators/base.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add skills/sundai-powerpoint/scripts/office/validators/base.py
+          git diff --cached --quiet || git commit -m "Add Anthropic pptx script: base.py via workflow"
+          git push
