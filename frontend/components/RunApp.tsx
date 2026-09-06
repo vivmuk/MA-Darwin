@@ -166,6 +166,7 @@ export function RunApp() {
     try {
       setBusy(true);
       if (current) setPrevious(current);
+      setCurrent(null);
       const started = await api.reiterateRun(runId);
       setRoundN(started.round_n);
       setCompare(true);

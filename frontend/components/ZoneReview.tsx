@@ -221,8 +221,14 @@ function CommentList({ comments }: { comments: HumanComment[] }) {
 }
 
 function ScoreTrend({ current, previous }: { current: RoundDetail | null; previous: RoundDetail | null }) {
+  const seen = new Set<number>();
   const points = [previous, current]
     .filter((r): r is RoundDetail => Boolean(r?.gate3))
+    .filter((r) => {
+      if (seen.has(r.n)) return false;
+      seen.add(r.n);
+      return true;
+    })
     .map((r) => ({ n: r.n, score: r.gate3!.deck_score }));
   const w = 320;
   const h = 120;
@@ -240,7 +246,7 @@ function ScoreTrend({ current, previous }: { current: RoundDetail | null; previo
         <svg viewBox={`0 0 ${w} ${h}`} className="mt-2 w-full">
           <path d={d} fill="none" stroke="#b8860b" strokeWidth="2" />
           {points.map((p, i) => (
-            <g key={p.n}>
+            <g key={`r${p.n}-${i}`}>
               <circle cx={xs[i]} cy={ys[i]} r="4" fill="#1b1914" />
               <text x={xs[i]} y={ys[i] - 8} textAnchor="middle" fontSize="10">
                 r{p.n} {p.score}
