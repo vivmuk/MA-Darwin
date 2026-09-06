@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <rect width="1600" height="900" fill="#f7f3ea"/>
+  <rect x="48" y="48" width="12" height="804" fill="#2f6b4f"/>
+  <text x="92" y="120" font-family="Georgia, serif" font-size="36" fill="#1b1914">Safety</text>
+  <text x="92" y="170" font-family="IBM Plex Sans, sans-serif" font-size="20" fill="#5a5346">SYNTHETIC EXAMPLE · safety</text>
+  <text x="92" y="300" font-family="IBM Plex Sans, sans-serif" font-size="22" fill="#1b1914">Serious adverse events: 18.2%</text>
+  <text x="92" y="820" font-family="IBM Plex Mono, monospace" font-size="14" fill="#8a8172">C-022 · p.7</text>
+</svg>

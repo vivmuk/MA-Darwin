@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #fff8e8 0%, transparent 50%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 27px,
+      rgba(184, 134, 11, 0.05) 28px
+    ),
+    #f3eee2;
+  color: #1b1914;
+}
+
+.zone {
+  @apply rounded-sm border border-rule bg-paper/90 shadow-pin;
+}
+
+.zone-label {
+  @apply font-mono text-[10px] uppercase tracking-[0.22em] text-brass;
+}
+
+.chip {
+  @apply inline-flex items-center gap-2 rounded-sm border border-ink/15 bg-white px-2 py-1 text-xs;
+}
+
+.pin {
+  width: 12px;
+  height: 12px;
+  border-radius: 99px;
+  box-shadow: 0 0 0 2px #f3eee2, 0 2px 0 rgba(27, 25, 20, 0.35);
+}
+
+.scope-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 3px solid #1b1914;
+  min-height: 3.25rem;
+}
+
+.scope-toggle button {
+  font-family: "IBM Plex Sans", sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+}
+
+.scope-toggle .on-always {
+  background: #8b1e3f;
+  color: #fff8e8;
+}
+
+.scope-toggle .on-deck {
+  background: #1f4e5f;
+  color: #fff8e8;
+}
+
+.scope-toggle .off {
+  background: #efe8d8;
+  color: #1b1914;
+}
