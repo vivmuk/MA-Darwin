@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const apiDir = path.join(root, "app", "api");
-const parked = path.join(root, "app", ".api-parked-for-static-export");
+const parked = path.join(root, ".api-parked-for-static-export");
 
 async function exists(target) {
   try {

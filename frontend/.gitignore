@@ -3,4 +3,4 @@ node_modules
 out
 .turbo
 *.log
-app/.api-parked-for-static-export
+.api-parked-for-static-export

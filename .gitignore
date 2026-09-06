@@ -12,4 +12,4 @@ runs/*
 DIAGNOSIS.md
 *.tsbuildinfo
 backend/web/
-frontend/app/.api-parked-for-static-export
+frontend/.api-parked-for-static-export
