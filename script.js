@@ -36,6 +36,9 @@ const skillChangeList = document.getElementById('skillChangeList');
 const rejectedNote = document.getElementById('rejectedNote');
 const applyChangesBtn = document.getElementById('applyChangesBtn');
 const evalHistoryBtn = document.getElementById('evalHistoryBtn');
+const toast = document.getElementById('toast');
+const toastMsg = document.getElementById('toastMsg');
+const toastUndo = document.getElementById('toastUndo');
 
 const regenPanel = document.getElementById('regenPanel');
 const regenTitle = document.getElementById('regenTitle');
@@ -410,8 +413,16 @@ const getHistory = () => readJson(HISTORY_KEY) || [];
 const getRejected = () => readJson(REJECTED_KEY) || [];
 const getActiveVersion = () => readJson(ACTIVE_VERSION_KEY) || 1;
 
-// Suggestions currently on screen for this round (post-filter).
+// Distinct category tags, used for the edit-mode dropdown.
+const CATEGORIES = [...new Set(ALL_SUGGESTIONS.map((s) => s.tag))];
+
+// Working copy of this round's suggestions — mutated by inline edit / delete.
+// Whatever is in here when "Apply changes & regenerate" is clicked is what
+// gets applied and (on a later revert) recorded as rejected.
 let roundSuggestions = [];
+let editingId = null;
+let pendingUndo = null; // { item, index, timer }
+
 // v1 / v2 deck payloads for the compare view.
 let v1Deck = null;
 let v2Deck = null;
@@ -421,37 +432,82 @@ let cmpIdx = { v1: 0, v2: 0 };
 function openEvaluation() {
   const text = (currentNotes().text || '').trim();
   yourEvalText.textContent = text || '(No feedback was entered.)';
-  renderSkillChanges();
+  buildRoundSuggestions();
+  renderSuggestionList();
   showView('evaluation');
 }
 
-function renderSkillChanges() {
-  const rejected = getRejected();
-  const rejectedIds = new Set(rejected.map((r) => r.id));
+function buildRoundSuggestions() {
+  const rejectedIds = new Set(getRejected().map((r) => r.id));
   // Each analysis round proposes a focused set (max 4), drawn from the
   // catalogue minus anything the evaluator has already rejected for this skill.
   const MAX_PER_ROUND = 4;
-  roundSuggestions = ALL_SUGGESTIONS.filter((s) => !rejectedIds.has(s.id)).slice(
-    0,
-    MAX_PER_ROUND
-  );
+  roundSuggestions = ALL_SUGGESTIONS.filter((s) => !rejectedIds.has(s.id))
+    .slice(0, MAX_PER_ROUND)
+    .map((s) => ({ ...s })); // clone so edits don't touch the catalogue
+  editingId = null;
+  clearPendingUndo();
+}
 
+function esc(str) {
+  return String(str).replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+  );
+}
+
+function renderSuggestionList() {
   skillChangeList.innerHTML = '';
-  roundSuggestions.forEach((s) => {
+
+  roundSuggestions.forEach((s, idx) => {
     const li = document.createElement('li');
     li.className = 'skill-change';
-    li.innerHTML = `
-      <span class="skill-change-tag">${s.tag}</span>
-      <div>
-        <p class="skill-change-title">${s.title}</p>
-        <p class="skill-change-detail">${s.detail}</p>
-      </div>`;
+    li.dataset.id = s.id;
+
+    if (editingId === s.id) {
+      const opts = CATEGORIES.map(
+        (c) =>
+          `<option value="${c}"${c === s.tag ? ' selected' : ''}>${c}</option>`
+      ).join('');
+      li.classList.add('editing');
+      li.innerHTML = `
+        <span class="skill-change-num">${idx + 1}.</span>
+        <div class="skill-change-edit">
+          <select class="edit-tag">${opts}</select>
+          <input class="edit-title notes-input" type="text" value="${esc(s.title)}" />
+          <textarea class="edit-detail notes-input" rows="3">${esc(s.detail)}</textarea>
+          <div class="edit-actions">
+            <button class="convert-btn edit-save" type="button">Save</button>
+            <button class="btn-secondary edit-cancel" type="button">Cancel</button>
+          </div>
+        </div>`;
+    } else {
+      li.innerHTML = `
+        <span class="skill-change-num">${idx + 1}.</span>
+        <span class="skill-change-tag">${esc(s.tag)}</span>
+        <div class="skill-change-main">
+          <p class="skill-change-title">${esc(s.title)}</p>
+          <p class="skill-change-detail">${esc(s.detail)}</p>
+        </div>
+        <div class="skill-change-actions">
+          <button class="icon-btn sc-edit" type="button" title="Edit" aria-label="Edit suggestion">✎</button>
+          <button class="icon-btn sc-delete" type="button" title="Delete" aria-label="Delete suggestion">🗑</button>
+        </div>`;
+    }
+
     skillChangeList.appendChild(li);
   });
 
+  renderRejectedNote();
+  refreshApplyButton();
+}
+
+function renderRejectedNote() {
+  const rejected = getRejected();
   if (rejected.length) {
     const lines = rejected
-      .map((r) => `“${r.title}” — rejected because: ${r.reason}`)
+      .map((r) => `“${esc(r.title)}” — rejected because: ${esc(r.reason)}`)
       .join('<br />');
     rejectedNote.innerHTML =
       `<strong>${rejected.length} suggestion(s) hidden.</strong> ` +
@@ -460,12 +516,75 @@ function renderSkillChanges() {
   } else {
     rejectedNote.hidden = true;
   }
-
-  applyChangesBtn.disabled = roundSuggestions.length === 0;
-  applyChangesBtn.textContent = roundSuggestions.length
-    ? 'Apply changes & regenerate'
-    : 'No new suggestions to apply';
 }
+
+function refreshApplyButton() {
+  const empty = roundSuggestions.length === 0;
+  applyChangesBtn.disabled = empty || editingId !== null;
+  applyChangesBtn.textContent = empty
+    ? 'No suggestions to apply'
+    : 'Apply changes & regenerate';
+}
+
+/* ---------- inline edit / delete ---------- */
+skillChangeList.addEventListener('click', (e) => {
+  const li = e.target.closest('.skill-change');
+  if (!li) return;
+  const id = li.dataset.id;
+
+  if (e.target.classList.contains('sc-edit')) {
+    editingId = id;
+    renderSuggestionList();
+    li.parentElement.querySelector('.editing .edit-title')?.focus();
+  } else if (e.target.classList.contains('sc-delete')) {
+    deleteSuggestion(id);
+  } else if (e.target.classList.contains('edit-cancel')) {
+    editingId = null;
+    renderSuggestionList();
+  } else if (e.target.classList.contains('edit-save')) {
+    const s = roundSuggestions.find((x) => x.id === id);
+    if (s) {
+      s.tag = li.querySelector('.edit-tag').value;
+      s.title = li.querySelector('.edit-title').value.trim() || s.title;
+      s.detail = li.querySelector('.edit-detail').value.trim() || s.detail;
+      s.edited = true;
+    }
+    editingId = null;
+    renderSuggestionList();
+  }
+});
+
+function deleteSuggestion(id) {
+  const index = roundSuggestions.findIndex((x) => x.id === id);
+  if (index === -1) return;
+  const [item] = roundSuggestions.splice(index, 1);
+  if (editingId === id) editingId = null;
+  renderSuggestionList();
+  showUndoToast(item, index);
+}
+
+/* ---------- undo toast ---------- */
+function showUndoToast(item, index) {
+  clearPendingUndo();
+  toastMsg.textContent = 'Suggestion removed';
+  toast.hidden = false;
+  const timer = setTimeout(clearPendingUndo, 5000);
+  pendingUndo = { item, index, timer };
+}
+
+function clearPendingUndo() {
+  if (pendingUndo) clearTimeout(pendingUndo.timer);
+  pendingUndo = null;
+  if (toast) toast.hidden = true;
+}
+
+toastUndo.addEventListener('click', () => {
+  if (!pendingUndo) return;
+  const { item, index } = pendingUndo;
+  roundSuggestions.splice(Math.min(index, roundSuggestions.length), 0, item);
+  clearPendingUndo();
+  renderSuggestionList();
+});
 
 openEvalBtn.addEventListener('click', openEvaluation);
 backToDeckBtn.addEventListener('click', () => showView('result'));
