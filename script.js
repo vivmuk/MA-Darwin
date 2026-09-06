@@ -32,6 +32,39 @@ const evaluationPanel = document.getElementById('evaluationPanel');
 const yourEvalText = document.getElementById('yourEvalText');
 const backToDeckBtn = document.getElementById('backToDeckBtn');
 const evalRestartBtn = document.getElementById('evalRestartBtn');
+const skillChangeList = document.getElementById('skillChangeList');
+const rejectedNote = document.getElementById('rejectedNote');
+const applyChangesBtn = document.getElementById('applyChangesBtn');
+const evalHistoryBtn = document.getElementById('evalHistoryBtn');
+
+const regenPanel = document.getElementById('regenPanel');
+const regenTitle = document.getElementById('regenTitle');
+const regenDetail = document.getElementById('regenDetail');
+const regenSteps = document.getElementById('regenSteps');
+
+const comparePanel = document.getElementById('comparePanel');
+const cmpV1Img = document.getElementById('cmpV1Img');
+const cmpV2Img = document.getElementById('cmpV2Img');
+const cmpV1Counter = document.getElementById('cmpV1Counter');
+const cmpV2Counter = document.getElementById('cmpV2Counter');
+const abChoice = document.getElementById('abChoice');
+const abReason = document.getElementById('abReason');
+const abSubmitBtn = document.getElementById('abSubmitBtn');
+const compareHistoryBtn = document.getElementById('compareHistoryBtn');
+
+const outcomePanel = document.getElementById('outcomePanel');
+const outcomeTitle = document.getElementById('outcomeTitle');
+const outcomeBody = document.getElementById('outcomeBody');
+const outcomeHistoryBtn = document.getElementById('outcomeHistoryBtn');
+const outcomeDoneBtn = document.getElementById('outcomeDoneBtn');
+const outcomeRestartBtn = document.getElementById('outcomeRestartBtn');
+
+const historyPanel = document.getElementById('historyPanel');
+const historyList = document.getElementById('historyList');
+const activeVersionLine = document.getElementById('activeVersionLine');
+const rejectedListBlock = document.getElementById('rejectedListBlock');
+const rejectedList = document.getElementById('rejectedList');
+const historyBackBtn = document.getElementById('historyBackBtn');
 
 let selectedFile = null;
 let slides = [];
@@ -69,8 +102,14 @@ function showView(view) {
   loadingPanel.hidden = !isLoading;
   resultPanel.hidden = !isResult;
   evaluationPanel.hidden = !isEvaluation;
+  regenPanel.hidden = view !== 'regenerating';
+  comparePanel.hidden = view !== 'compare';
+  outcomePanel.hidden = view !== 'outcome';
+  historyPanel.hidden = view !== 'history';
   window.scrollTo(0, 0);
 }
+
+let historyReturnView = 'evaluation';
 
 /* ---------- upload + preview ---------- */
 pdfInput.addEventListener('change', (event) => {
@@ -298,15 +337,371 @@ lockConfirm.addEventListener('click', () => {
   openEvaluation();
 });
 
-/* ---------- AI evaluation view (mock content, no API yet) ---------- */
+/* ==========================================================================
+   Skill improvement loop (all mock — no real skill editing or API calls)
+   ========================================================================== */
+
+/* Full catalogue of suggestions the mock "analysis" can propose. The visible
+   list is this set minus anything already in the rejected list for the skill. */
+const ALL_SUGGESTIONS = [
+  {
+    id: 'exec-summary',
+    tag: 'structure',
+    title: 'Add an executive-summary slide as slide 2',
+    detail:
+      'Insert a synthesis slide (3–4 bullets: population, key finding with effect size, key safety signal, open question) immediately after the title. Renumber the 8-slide outline to 9.',
+  },
+  {
+    id: 'body-cap',
+    tag: 'density',
+    title: 'Cap body copy at ~40 words / 5 bullets per slide',
+    detail:
+      'When source content for a slide exceeds the cap, split into two slides rather than shrinking type. Prefer bullet points over multi-sentence paragraphs on slides 2–4.',
+  },
+  {
+    id: 'split-evidence',
+    tag: 'evidence',
+    title: 'Split the evidence slide into "design" and "results"',
+    detail:
+      'One slide for study design + N + population; a second for outcomes. Require a confidence interval on every reported estimate, primary and secondary.',
+  },
+  {
+    id: 'safety-table',
+    tag: 'safety',
+    title: 'Render safety data as a table, not a paragraph',
+    detail:
+      'Columns: adverse event, arm, rate, between-arm difference. Keep the oxblood accent reserved for the safety slide only.',
+  },
+  {
+    id: 'unknowns-expand',
+    tag: 'completeness',
+    title: 'Expand "what remains unknown" to 3+ points',
+    detail:
+      'Require at least three distinct evidence gaps (e.g. long-term data, subgroup effects, comparator scope) rather than a single summary sentence.',
+  },
+  {
+    id: 'finding-titles',
+    tag: 'narrative',
+    title: 'Lead each slide title with the finding, not the topic',
+    detail:
+      'Convert topic labels ("Safety profile") into claim-style titles ("No new safety signals at 12 months") so a skim of titles tells the story.',
+  },
+  {
+    id: 'endpoint-callout',
+    tag: 'citations',
+    title: 'Add a callout box for the primary endpoint on the results slide',
+    detail:
+      'Pull the primary effect size + CI + p-value into a boxed callout with the citation directly beneath it.',
+  },
+  {
+    id: 'backup-questions',
+    tag: 'backup',
+    title: 'Populate the backup slide with 3 anticipated physician questions',
+    detail:
+      'Replace leftover content with three likely HCP questions and evidence-based responses, each with a source identifier.',
+  },
+];
+
+const HISTORY_KEY = 'madarwin:skillHistory';
+const REJECTED_KEY = 'madarwin:rejectedSuggestions';
+const ACTIVE_VERSION_KEY = 'madarwin:activeVersion';
+
+const getHistory = () => readJson(HISTORY_KEY) || [];
+const getRejected = () => readJson(REJECTED_KEY) || [];
+const getActiveVersion = () => readJson(ACTIVE_VERSION_KEY) || 1;
+
+// Suggestions currently on screen for this round (post-filter).
+let roundSuggestions = [];
+// v1 / v2 deck payloads for the compare view.
+let v1Deck = null;
+let v2Deck = null;
+let cmpIdx = { v1: 0, v2: 0 };
+
+/* ---------- AI evaluation view ---------- */
 function openEvaluation() {
   const text = (currentNotes().text || '').trim();
   yourEvalText.textContent = text || '(No feedback was entered.)';
+  renderSkillChanges();
   showView('evaluation');
+}
+
+function renderSkillChanges() {
+  const rejected = getRejected();
+  const rejectedIds = new Set(rejected.map((r) => r.id));
+  // Each analysis round proposes a focused set (max 4), drawn from the
+  // catalogue minus anything the evaluator has already rejected for this skill.
+  const MAX_PER_ROUND = 4;
+  roundSuggestions = ALL_SUGGESTIONS.filter((s) => !rejectedIds.has(s.id)).slice(
+    0,
+    MAX_PER_ROUND
+  );
+
+  skillChangeList.innerHTML = '';
+  roundSuggestions.forEach((s) => {
+    const li = document.createElement('li');
+    li.className = 'skill-change';
+    li.innerHTML = `
+      <span class="skill-change-tag">${s.tag}</span>
+      <div>
+        <p class="skill-change-title">${s.title}</p>
+        <p class="skill-change-detail">${s.detail}</p>
+      </div>`;
+    skillChangeList.appendChild(li);
+  });
+
+  if (rejected.length) {
+    const lines = rejected
+      .map((r) => `“${r.title}” — rejected because: ${r.reason}`)
+      .join('<br />');
+    rejectedNote.innerHTML =
+      `<strong>${rejected.length} suggestion(s) hidden.</strong> ` +
+      `Tried in an earlier round and rejected by the evaluator, so they are not proposed again:<br />${lines}`;
+    rejectedNote.hidden = false;
+  } else {
+    rejectedNote.hidden = true;
+  }
+
+  applyChangesBtn.disabled = roundSuggestions.length === 0;
+  applyChangesBtn.textContent = roundSuggestions.length
+    ? 'Apply changes & regenerate'
+    : 'No new suggestions to apply';
 }
 
 openEvalBtn.addEventListener('click', openEvaluation);
 backToDeckBtn.addEventListener('click', () => showView('result'));
+
+/* ---------- apply changes & regenerate (mock) ---------- */
+const REGEN_STEPS = [
+  'Applying suggested changes to the skill',
+  'Regenerating the deck from the same PDF',
+  'Rendering the updated slides',
+];
+
+function renderRegenSteps(activeIndex) {
+  regenSteps.innerHTML = '';
+  REGEN_STEPS.forEach((label, i) => {
+    const li = document.createElement('li');
+    li.textContent = label;
+    if (i < activeIndex) li.className = 'done';
+    else if (i === activeIndex) li.className = 'active';
+    regenSteps.appendChild(li);
+  });
+}
+
+applyChangesBtn.addEventListener('click', async () => {
+  if (!roundSuggestions.length) return;
+
+  showView('regenerating');
+  regenTitle.textContent = 'Updating skill…';
+  regenDetail.textContent = `Applying ${roundSuggestions.length} suggested change(s).`;
+  renderRegenSteps(0);
+
+  await sleep(900);
+  regenTitle.textContent = 'Regenerating deck…';
+  regenDetail.textContent = 'Re-running the conversion on the same PDF.';
+  renderRegenSteps(1);
+
+  try {
+    const res = await fetch('/api/regenerate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deckId: currentDeckId }),
+    });
+    if (!res.ok) throw new Error(`Server responded ${res.status}`);
+    v2Deck = await res.json();
+  } catch (err) {
+    regenTitle.textContent = 'Regeneration failed';
+    regenDetail.textContent = err.message;
+    await sleep(2000);
+    showView('evaluation');
+    return;
+  }
+
+  renderRegenSteps(2);
+  await sleep(700);
+
+  v1Deck = readJson(LAST_DECK_KEY);
+  openCompare();
+});
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/* ---------- compare v1 vs v2 ---------- */
+function openCompare() {
+  cmpIdx = { v1: 0, v2: 0 };
+  renderCmp('v1');
+  renderCmp('v2');
+  abReason.value = '';
+  [...abChoice.querySelectorAll('input')].forEach((i) => (i.checked = false));
+  refreshAbSubmit();
+  document.getElementById('v1Tag').textContent = `Active skill version ${getActiveVersion()}`;
+  showView('compare');
+}
+
+function renderCmp(side) {
+  const deck = side === 'v1' ? v1Deck : v2Deck;
+  const img = side === 'v1' ? cmpV1Img : cmpV2Img;
+  const counter = side === 'v1' ? cmpV1Counter : cmpV2Counter;
+  if (!deck || !deck.slides || !deck.slides.length) return;
+  const i = cmpIdx[side];
+  img.src = deck.slides[i];
+  counter.textContent = `Slide ${i + 1} / ${deck.slides.length}`;
+}
+
+comparePanel.querySelectorAll('.carousel-nav[data-cmp]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const side = btn.dataset.cmp;
+    const dir = Number(btn.dataset.dir);
+    const deck = side === 'v1' ? v1Deck : v2Deck;
+    if (!deck) return;
+    const len = deck.slides.length;
+    cmpIdx[side] = (cmpIdx[side] + dir + len) % len;
+    renderCmp(side);
+  });
+});
+
+function refreshAbSubmit() {
+  const picked = abChoice.querySelector('input:checked');
+  abSubmitBtn.disabled = !picked || abReason.value.trim().length === 0;
+}
+abChoice.addEventListener('change', refreshAbSubmit);
+abReason.addEventListener('input', refreshAbSubmit);
+
+/* ---------- decision + branching outcome ---------- */
+abSubmitBtn.addEventListener('click', () => {
+  const picked = abChoice.querySelector('input:checked');
+  const reason = abReason.value.trim();
+  if (!picked || !reason) return;
+
+  const history = getHistory();
+  const roundNo = history.length + 1;
+  const triedIds = roundSuggestions.map((s) => s.id);
+  const triedTitles = roundSuggestions.map((s) => s.title);
+  const attemptedVersion = getActiveVersion() + 1;
+
+  if (picked.value === 'v2') {
+    // keep v2 as the active skill version
+    writeJson(ACTIVE_VERSION_KEY, attemptedVersion);
+    writeJson(LAST_DECK_KEY, v2Deck); // v2 becomes the deck we show at rest
+    history.push({
+      round: roundNo,
+      attemptedVersion,
+      activeAfter: attemptedVersion,
+      outcome: 'accepted',
+      reason,
+      suggestionIds: triedIds,
+      suggestionTitles: triedTitles,
+      at: Date.now(),
+    });
+    writeJson(HISTORY_KEY, history);
+    loadDeck(v2Deck);
+    renderOutcome('accepted', attemptedVersion, reason, triedTitles);
+  } else {
+    // revert: discard v2, keep v1; log tried suggestions as rejected
+    const rejected = getRejected();
+    const existing = new Set(rejected.map((r) => r.id));
+    roundSuggestions.forEach((s) => {
+      if (!existing.has(s.id)) {
+        rejected.push({ id: s.id, title: s.title, reason, at: Date.now() });
+      }
+    });
+    writeJson(REJECTED_KEY, rejected);
+    history.push({
+      round: roundNo,
+      attemptedVersion,
+      activeAfter: getActiveVersion(),
+      outcome: 'reverted',
+      reason,
+      suggestionIds: triedIds,
+      suggestionTitles: triedTitles,
+      at: Date.now(),
+    });
+    writeJson(HISTORY_KEY, history);
+    renderOutcome('reverted', getActiveVersion(), reason, triedTitles);
+  }
+});
+
+function renderOutcome(outcome, activeVersion, reason, triedTitles) {
+  const accepted = outcome === 'accepted';
+  outcomeTitle.textContent = accepted
+    ? 'Skill updated'
+    : 'Reverted to previous version';
+
+  const list = triedTitles.map((t) => `<li>${t}</li>`).join('');
+
+  outcomeBody.innerHTML = accepted
+    ? `
+      <div class="outcome-banner accepted">✓ Version ${activeVersion} is now active</div>
+      <p>The evaluator picked the regenerated deck. Version ${activeVersion} of
+      the skill is kept as active and this round is logged in the version
+      history.</p>
+      <p><strong>Changes kept in this version:</strong></p>
+      <ul>${list}</ul>
+      <p class="history-reason">Reason given: “${reason}”</p>`
+    : `
+      <div class="outcome-banner reverted">↩ Version ${activeVersion} remains active</div>
+      <p>The evaluator picked the original deck. Version 2 was discarded and the
+      skill stays at version ${activeVersion}.</p>
+      <p><strong>Suggestions recorded as rejected (won't be proposed again):</strong></p>
+      <ul>${list}</ul>
+      <p class="history-reason">Reason given: “${reason}”</p>`;
+
+  showView('outcome');
+}
+
+/* ---------- version history view ---------- */
+function openHistory(returnView) {
+  historyReturnView = returnView || 'evaluation';
+  const history = getHistory();
+  activeVersionLine.textContent = `Active version: ${getActiveVersion()}`;
+
+  historyList.innerHTML = '';
+  if (!history.length) {
+    const li = document.createElement('li');
+    li.className = 'history-empty';
+    li.textContent = 'No improvement rounds yet.';
+    historyList.appendChild(li);
+  } else {
+    [...history].reverse().forEach((r) => {
+      const li = document.createElement('li');
+      li.className = 'history-round';
+      const sugg = r.suggestionTitles.map((t) => `<li>${t}</li>`).join('');
+      li.innerHTML = `
+        <div class="history-round-head">
+          <strong>Round ${r.round}</strong>
+          <span>Attempted v${r.attemptedVersion}</span>
+          <span class="outcome-pill ${r.outcome}">${r.outcome}</span>
+          <span>· active after: v${r.activeAfter}</span>
+        </div>
+        <p class="history-reason">“${r.reason}”</p>
+        <p class="skill-change-detail">Suggestions this round:</p>
+        <ul class="history-suggestions">${sugg}</ul>`;
+      historyList.appendChild(li);
+    });
+  }
+
+  const rejected = getRejected();
+  if (rejected.length) {
+    rejectedList.innerHTML = rejected
+      .map((r) => `<li>“${r.title}” — ${r.reason}</li>`)
+      .join('');
+    rejectedListBlock.hidden = false;
+  } else {
+    rejectedListBlock.hidden = true;
+  }
+
+  showView('history');
+}
+
+evalHistoryBtn.addEventListener('click', () => openHistory('evaluation'));
+compareHistoryBtn.addEventListener('click', () => openHistory('compare'));
+outcomeHistoryBtn.addEventListener('click', () => openHistory('outcome'));
+historyBackBtn.addEventListener('click', () => showView(historyReturnView));
+
+outcomeDoneBtn.addEventListener('click', () => showView('result'));
+outcomeRestartBtn.addEventListener('click', restartJourney);
 
 /* ---------- boot ---------- */
 restoreLastDeck();

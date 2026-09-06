@@ -79,6 +79,7 @@ app.post('/api/convert', upload.single('pdf'), async (req, res) => {
     res.json({
       id: deck.id,
       title: deck.title,
+      version: deck.version,
       slideCount: deck.slideCount,
       slides: deck.slides,
       pptxUrl: deck.pptxUrl,
@@ -89,6 +90,50 @@ app.post('/api/convert', upload.single('pdf'), async (req, res) => {
   }
 });
 
+/**
+ * Re-run the conversion on the SAME source PDF after (mock) skill changes.
+ *
+ * MOCK IMPLEMENTATION: ignores the applied suggestions and returns a fixed
+ * "v2" deck (9 slides — adds an executive summary, splits evidence into
+ * design/results, renders safety as a table). Real version would edit the
+ * skill file, re-invoke it against deck.sourcePdf, and re-render.
+ */
+app.post('/api/regenerate', express.json(), async (req, res) => {
+  const sourceId = req.body && req.body.deckId;
+  const source = sourceId && decks.get(sourceId);
+
+  await new Promise((r) => setTimeout(r, 900)); // "updating skill"
+  await new Promise((r) => setTimeout(r, 1100)); // "regenerating deck"
+
+  const id = crypto.randomUUID();
+  const slideCount = 9;
+  const slides = Array.from(
+    { length: slideCount },
+    (_, i) => `/api/decks/${id}/slide-${i + 1}.svg`
+  );
+
+  decks.set(id, {
+    id,
+    title: 'DRAFT M2M deck (v2 — updated)',
+    version: 2,
+    variant: 'v2',
+    slideCount,
+    slides,
+    pptxUrl: `/api/decks/${id}/deck.pptx`,
+    sourcePdf: source ? source.sourcePdf : null,
+    regeneratedFrom: sourceId || null,
+  });
+
+  res.json({
+    id,
+    title: 'DRAFT M2M deck (v2 — updated)',
+    version: 2,
+    slideCount,
+    slides,
+    pptxUrl: `/api/decks/${id}/deck.pptx`,
+  });
+});
+
 // Serve generated deck assets. In the mock, every deck maps to the same
 // bundled sample files.
 app.get('/api/decks/:id/:asset', (req, res) => {
@@ -97,7 +142,10 @@ app.get('/api/decks/:id/:asset', (req, res) => {
 
   if (/^slide-\d+\.svg$/.test(asset)) {
     const n = Number(asset.match(/\d+/)[0]);
-    return res.type('image/svg+xml').send(mockSlideSvg(n, decks.get(id).slideCount));
+    const deck = decks.get(id);
+    return res
+      .type('image/svg+xml')
+      .send(mockSlideSvg(n, deck.slideCount, deck.variant));
   }
   if (asset === 'deck.pptx') {
     const file = path.join(MOCK_DIR, 'deck.pptx');
@@ -136,8 +184,8 @@ app.listen(PORT, () => {
 });
 
 /* ----------------- mock slide rendering ----------------- */
-function mockSlideSvg(n, total) {
-  const titles = [
+const SLIDE_TITLES = {
+  v1: [
     'Title slide - DRAFT',
     'Disease context',
     'Unmet need',
@@ -146,18 +194,36 @@ function mockSlideSvg(n, total) {
     'What remains unknown',
     'References',
     'Backup - anticipated questions',
-  ];
+  ],
+  v2: [
+    'Title slide - DRAFT',
+    'Executive summary (NEW)',
+    'Disease context',
+    'Unmet need',
+    'Study design',
+    'Results (CIs on all estimates)',
+    'Safety profile - table',
+    'What remains unknown (3 gaps)',
+    'References',
+  ],
+};
+
+function mockSlideSvg(n, total, variant) {
+  const titles = SLIDE_TITLES[variant === 'v2' ? 'v2' : 'v1'];
   const label = titles[n - 1] || `Slide ${n}`;
+  const accent = variant === 'v2' ? '#0f766e' : '#1d4ed8';
+  const soft = variant === 'v2' ? '#ccfbf1' : '#dbeafe';
+  const tag = variant === 'v2' ? 'MOCK PREVIEW - V2' : 'MOCK PREVIEW';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" font-family="Arial, Helvetica, sans-serif">
   <rect width="1280" height="720" fill="#ffffff"/>
-  <rect width="1280" height="14" fill="#1d4ed8"/>
-  <rect x="0" y="706" width="1280" height="14" fill="#dbeafe"/>
-  <text x="64" y="120" font-size="30" fill="#1d4ed8" font-weight="700" letter-spacing="3">MOCK PREVIEW</text>
-  <text x="64" y="230" font-size="64" fill="#0f172a" font-weight="700">${label}</text>
+  <rect width="1280" height="14" fill="${accent}"/>
+  <rect x="0" y="706" width="1280" height="14" fill="${soft}"/>
+  <text x="64" y="120" font-size="30" fill="${accent}" font-weight="700" letter-spacing="3">${tag}</text>
+  <text x="64" y="230" font-size="60" fill="#0f172a" font-weight="700">${label}</text>
   <text x="64" y="300" font-size="30" fill="#475569">Placeholder slide ${n} of ${total}</text>
-  <text x="64" y="356" font-size="24" fill="#475569">Real content will be generated from the uploaded PDF</text>
-  <text x="64" y="388" font-size="24" fill="#475569">by the sundai-powerpoint skill via the Anthropic API.</text>
-  <circle cx="1120" cy="560" r="90" fill="#dbeafe"/>
-  <text x="1120" y="575" font-size="72" fill="#1d4ed8" font-weight="700" text-anchor="middle">${n}</text>
+  <text x="64" y="356" font-size="24" fill="#475569">Mock content — real slides come from the sundai-powerpoint</text>
+  <text x="64" y="388" font-size="24" fill="#475569">skill via the Anthropic API.</text>
+  <circle cx="1120" cy="560" r="90" fill="${soft}"/>
+  <text x="1120" y="575" font-size="72" fill="${accent}" font-weight="700" text-anchor="middle">${n}</text>
 </svg>`;
 }

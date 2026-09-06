@@ -202,66 +202,145 @@
 
           <div class="analysis-block">
             <h4>Suggested changes to the PDF → PowerPoint skill</h4>
-            <ol class="skill-change-list" id="skillChangeList">
-              <li class="skill-change">
-                <span class="skill-change-tag">structure</span>
-                <div>
-                  <p class="skill-change-title">Add an executive-summary slide as slide 2</p>
-                  <p class="skill-change-detail">
-                    Insert a synthesis slide (3–4 bullets: population, key
-                    finding with effect size, key safety signal, open question)
-                    immediately after the title. Renumber the existing 8-slide
-                    outline to 9.
-                  </p>
-                </div>
-              </li>
-              <li class="skill-change">
-                <span class="skill-change-tag">density</span>
-                <div>
-                  <p class="skill-change-title">Cap body copy at ~40 words / 5 bullets per slide</p>
-                  <p class="skill-change-detail">
-                    When source content for a slide exceeds the cap, split into
-                    two slides rather than shrinking type. Prefer bullet points
-                    over multi-sentence paragraphs on slides 2–4.
-                  </p>
-                </div>
-              </li>
-              <li class="skill-change">
-                <span class="skill-change-tag">evidence</span>
-                <div>
-                  <p class="skill-change-title">Split the evidence slide into "design" and "results"</p>
-                  <p class="skill-change-detail">
-                    One slide for study design + N + population; a second for
-                    outcomes. Require a confidence interval on every reported
-                    estimate, primary and secondary — flag any estimate missing
-                    a CI in the draft.
-                  </p>
-                </div>
-              </li>
-              <li class="skill-change">
-                <span class="skill-change-tag">safety</span>
-                <div>
-                  <p class="skill-change-title">Render safety data as a table, not a paragraph</p>
-                  <p class="skill-change-detail">
-                    Columns: adverse event, arm, rate, between-arm difference.
-                    Keep the oxblood accent reserved for the safety slide only.
-                  </p>
-                </div>
-              </li>
-              <li class="skill-change">
-                <span class="skill-change-tag">completeness</span>
-                <div>
-                  <p class="skill-change-title">Expand "what remains unknown" to 3+ points</p>
-                  <p class="skill-change-detail">
-                    Require at least three distinct evidence gaps (e.g.
-                    long-term data, subgroup effects, comparator scope) rather
-                    than a single summary sentence.
-                  </p>
-                </div>
-              </li>
-            </ol>
+            <p class="rejected-note" id="rejectedNote" hidden></p>
+            <ol class="skill-change-list" id="skillChangeList"></ol>
+          </div>
+
+          <div class="analysis-actions">
+            <button id="applyChangesBtn" class="convert-btn" type="button">
+              Apply changes &amp; regenerate
+            </button>
+            <button id="evalHistoryBtn" class="btn-secondary" type="button">
+              Version history
+            </button>
           </div>
         </section>
+      </section>
+
+      <!-- ============ VIEW: REGENERATING ============ -->
+      <section class="state-panel" id="regenPanel" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <h2 id="regenTitle">Updating skill…</h2>
+        <p class="subtitle" id="regenDetail">Applying the suggested changes.</p>
+        <ol class="regen-steps" id="regenSteps"></ol>
+      </section>
+
+      <!-- ============ VIEW: COMPARE V1 vs V2 ============ -->
+      <section class="evaluation-panel" id="comparePanel" hidden>
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Compare</p>
+            <h2>Original vs. Regenerated</h2>
+          </div>
+          <div class="result-actions">
+            <button id="compareHistoryBtn" class="btn-secondary" type="button">Version history</button>
+          </div>
+        </div>
+
+        <div class="eval-columns">
+          <article class="eval-card compare-card">
+            <header class="eval-card-head">
+              <h3>Version 1 — Original</h3>
+              <span class="eval-tag" id="v1Tag">Active skill version</span>
+            </header>
+            <div class="mini-carousel">
+              <button class="carousel-nav" data-cmp="v1" data-dir="-1" type="button" aria-label="Previous">‹</button>
+              <div class="mini-stage"><img id="cmpV1Img" alt="Version 1 slide" /></div>
+              <button class="carousel-nav" data-cmp="v1" data-dir="1" type="button" aria-label="Next">›</button>
+            </div>
+            <p class="mini-counter" id="cmpV1Counter">Slide 1 / 1</p>
+          </article>
+
+          <article class="eval-card compare-card">
+            <header class="eval-card-head">
+              <h3>Version 2 — Updated</h3>
+              <span class="eval-tag ai">Regenerated with suggested changes</span>
+            </header>
+            <div class="mini-carousel">
+              <button class="carousel-nav" data-cmp="v2" data-dir="-1" type="button" aria-label="Previous">‹</button>
+              <div class="mini-stage"><img id="cmpV2Img" alt="Version 2 slide" /></div>
+              <button class="carousel-nav" data-cmp="v2" data-dir="1" type="button" aria-label="Next">›</button>
+            </div>
+            <p class="mini-counter" id="cmpV2Counter">Slide 1 / 1</p>
+          </article>
+        </div>
+
+        <section class="eval-analysis">
+          <h3>Which version is better?</h3>
+          <p class="subtitle">
+            Your pick decides whether the skill keeps Version 2 or reverts to
+            Version 1. This choice can't be undone in this round.
+          </p>
+
+          <div class="ab-choice" id="abChoice">
+            <label class="ab-option">
+              <input type="radio" name="abPick" value="v1" />
+              <span class="ab-option-label">Version 1 (Original)</span>
+            </label>
+            <label class="ab-option">
+              <input type="radio" name="abPick" value="v2" />
+              <span class="ab-option-label">Version 2 (Updated)</span>
+            </label>
+          </div>
+
+          <label class="notes-label" for="abReason">Why? (required)</label>
+          <textarea
+            id="abReason"
+            class="notes-input"
+            rows="4"
+            placeholder="Briefly explain your choice — this reasoning is recorded and used to avoid repeating rejected changes."
+          ></textarea>
+
+          <div class="analysis-actions">
+            <button id="abSubmitBtn" class="convert-btn" type="button" disabled>
+              Submit decision
+            </button>
+          </div>
+        </section>
+      </section>
+
+      <!-- ============ VIEW: OUTCOME ============ -->
+      <section class="evaluation-panel" id="outcomePanel" hidden>
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Round complete</p>
+            <h2 id="outcomeTitle">Decision recorded</h2>
+          </div>
+          <div class="result-actions">
+            <button id="outcomeHistoryBtn" class="btn-secondary" type="button">Version history</button>
+            <button id="outcomeDoneBtn" class="btn-secondary" type="button">Back to deck</button>
+            <button id="outcomeRestartBtn" class="btn-secondary" type="button">Upload new PDF</button>
+          </div>
+        </div>
+
+        <div class="outcome-body" id="outcomeBody"></div>
+
+        <p class="subtitle outcome-stop">
+          The flow stops here. Upload a new PDF or start another improvement
+          round manually to continue — nothing regenerates automatically.
+        </p>
+      </section>
+
+      <!-- ============ VIEW: VERSION HISTORY ============ -->
+      <section class="evaluation-panel" id="historyPanel" hidden>
+        <div class="result-header">
+          <div>
+            <p class="eyebrow">Skill</p>
+            <h2>Version history</h2>
+          </div>
+          <div class="result-actions">
+            <button id="historyBackBtn" class="btn-secondary" type="button">← Back</button>
+          </div>
+        </div>
+
+        <p class="subtitle" id="activeVersionLine">Active version: 1</p>
+
+        <ol class="history-list" id="historyList"></ol>
+
+        <div class="analysis-block" id="rejectedListBlock" hidden>
+          <h4>Rejected suggestions for this skill</h4>
+          <ul class="analysis-list" id="rejectedList"></ul>
+        </div>
       </section>
     </main>
 
